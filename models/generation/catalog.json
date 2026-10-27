@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "default": "sdxl-turbo",
+  "models": [
+    {
+      "id": "sdxl-turbo",
+      "label": "SDXL Turbo（獨立生成）",
+      "kind": "image",
+      "checkpoint": "sdxl-turbo/model.safetensors",
+      "config": "sdxl-turbo/config",
+      "modes": [
+        "text-image",
+        "image-edit"
+      ],
+      "source": "stabilityai/sdxl-turbo",
+      "max_dimension": 768,
+      "status": "installed"
+    },
+    {
+      "id": "heartmula-3b",
+      "label": "HeartMuLa 3B（獨立音樂）",
+      "kind": "music",
+      "checkpoint": "heartmula/HeartMuLa-oss-3B/model.safetensors.index.json",
+      "bytes": 22400063577,
+      "modes": [
+        "music"
+      ],
+      "status": "installed",
+      "min_seconds": 10,
+      "max_seconds": 60
+    }
+  ],
+  "pending": [
+    "Qwen Image 2.1",
+    "Wan video",
+    "MiniMax Music"
+  ]
+}

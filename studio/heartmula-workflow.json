@@ -1,0 +1,27 @@
+{
+  "1": {
+    "inputs": {
+      "lyrics": "[Verse]\nMorning light upon the sea\nGentle waves are calling me",
+      "tags": "acoustic, calm, guitar, soft vocal",
+      "seconds": 10,
+      "seed": 42
+    },
+    "class_type": "HeartMuLaVerified",
+    "_meta": {
+      "title": "HeartMuLa 10GB (Verified Environment)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "filename_prefix": "audio/heartmula_verified_10s",
+      "audio": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "SaveAudio",
+    "_meta": {
+      "title": "儲存音訊"
+    }
+  }
+}

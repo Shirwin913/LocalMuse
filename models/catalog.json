@@ -1,0 +1,19 @@
+[
+  {
+    "id": "qwen2.5:7b",
+    "label": "Qwen2.5 7B",
+    "model": "qwen2.5-7b.gguf"
+  },
+  {
+    "id": "Qwythos-9B-v2-GGUF:Q4_K_M",
+    "label": "Qwythos 9B v2",
+    "model": "qwythos-9b-v2.gguf",
+    "projector": "qwythos-9b-v2-mmproj.gguf"
+  },
+  {
+    "id": "llava:latest",
+    "label": "LLaVA 7B（文字／圖片）",
+    "model": "llava-7b.gguf",
+    "projector": "llava-7b-mmproj.gguf"
+  }
+]

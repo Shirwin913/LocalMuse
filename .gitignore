@@ -1,0 +1,31 @@
+# Local runtimes, dependencies and generated/private data
+runtime/
+studio/node_modules/
+studio/data/
+work/
+generated/
+__pycache__/
+*.py[cod]
+*.log
+.cache/
+.venv/
+venv/
+
+# Model weights stay on this computer; manifests/configs remain versioned
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.bin
+*.incomplete
+
+# Credentials and machine-specific settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+Thumbs.db
+.DS_Store

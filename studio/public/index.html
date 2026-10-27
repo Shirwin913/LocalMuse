@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LocalMuse 本機繆思</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="refinement.css" />
+<link rel="stylesheet" href="selects.css" />
+<link rel="stylesheet" href="webcam.css" />
+<link rel="stylesheet" href="robot.css" />
+<link rel="stylesheet" href="camera-hub.css">
+<link rel="stylesheet" href="avatar.css"><link rel="stylesheet" href="anime-3d.css"><link rel="stylesheet" href="vrm-avatar.css"><script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script><link rel="stylesheet" href="compact-dialog.css"><link rel="stylesheet" href="avatar-view.css"></head>
+<body>
+  <main class="app">
+    <section class="panel">
+      <div class="header">
+        <div>
+          <h1>LocalMuse 本機繆思</h1>
+          <p>聊天 · 圖像 · 影片 · 音樂</p>
+        </div>
+        <div id="status" class="status">檢查中...</div>
+      </div>
+
+      <div class="toolbar">
+        <label for="model">模型</label>
+        <select id="model"></select>
+        <button id="refreshModelsBtn" type="button">重新整理</button>
+        <button id="clearBtn" type="button">清空</button>
+      </div>
+
+      <div id="chat" class="chat"></div>
+
+      <div id="filePreview" class="file-preview"></div>
+
+      <form id="chatForm" class="input-area">
+        <input
+          type="file"
+          id="fileInput"
+          accept=".pdf,.txt,.docx,image/*,audio/*"
+          hidden
+        />
+
+        <button id="fileBtn" type="button">📎</button>
+
+        <textarea
+          id="messageInput"
+          rows="2"
+          placeholder="輸入訊息，例如：請幫我摘要這份 PDF"
+        ></textarea>
+
+        <button type="submit">送出</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+<script src="webcam.js"></script>
+<script src="robot.js"></script><script src="camera-hub.js"></script><script src="avatar.js"></script><script src="avatar-view.js"></script><script src="anime-3d.js"></script><script src="custom-vrm.js"></script><script src="vrm-avatar.js"></script><script src="compact-dialog.js"></script><script src="avatar-motion.js"></script></body>
+</html>

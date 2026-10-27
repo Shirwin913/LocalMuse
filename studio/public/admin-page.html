@@ -1,0 +1,9 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>帳號管理 · 本機 AI</title><link rel="stylesheet" href="admin-page.css"><link rel="stylesheet" href="selects.css" />
+</head><body>
+<header><a href="/">← 返回聊天</a><span id="identity">正在驗證管理員…</span></header>
+<main hidden id="main"><div class="intro"><div><small>LOCAL AI / ADMINISTRATION</small><h1>帳號與使用狀況</h1><p>管理成員、查看用量，讓每個人的聊天空間保持獨立。</p></div><div class="intro-actions"><a href="/resources.html">資源監控與管理 →</a><button id="refresh">重新整理</button><button class="primary" id="invite">邀請親友</button></div></div>
+<section id="metrics" class="metrics" aria-label="用量總覽"></section>
+<p id="presenceSummary" class="hint" role="status">正在更新在線狀態…</p><div class="layout"><section class="panel"><div class="filters"><input id="search" type="search" placeholder="搜尋帳號…" aria-label="搜尋帳號"><select id="filter" aria-label="帳號狀態"><option value="all">所有帳號</option><option value="active">啟用中</option><option value="disabled">已停用</option><option value="admin">管理員</option></select></div><div class="table-wrap"><table><thead><tr><th>帳號</th><th>狀態</th><th>對話</th><th>附件用量</th></tr></thead><tbody id="users"></tbody></table></div><p id="count" class="hint"></p></section>
+<section id="detail" class="panel detail" aria-live="polite"><p>選擇帳號查看詳細資訊。</p></section></div>
+<p class="hint">附件用量為資料庫中附件原始大小，不包含資料庫索引、ComfyUI 原始輸出與備份。在線狀態依網頁連線回報判定：5 分鐘未操作為閒置，90 秒未回報為離線。背景分頁休眠可能延遲回報；有效登入數不代表目前在線人數。</p></main>
+<p id="status" role="status"></p><dialog id="dialog"><h2 id="dialogTitle"></h2><p id="dialogInfo"></p><form id="dialogForm"><label id="fieldLabel" for="dialogInput"></label><input id="dialogInput"><p id="dialogError" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel">取消</button><button id="confirm" class="primary">確認</button></div></form></dialog><script src="admin-page.js"></script><script src="presence.js"></script></body></html>

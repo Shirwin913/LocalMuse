@@ -1,0 +1,41 @@
+{
+  "source": "Existing local HeartMuLa and HeartCodec checkpoints; original retained",
+  "files": [
+    {
+      "file": "HeartMuLa-oss-3B\\model-00001-of-00004.safetensors",
+      "bytes": 4933188000
+    },
+    {
+      "file": "HeartMuLa-oss-3B\\model-00002-of-00004.safetensors",
+      "bytes": 4932808592
+    },
+    {
+      "file": "HeartMuLa-oss-3B\\model-00003-of-00004.safetensors",
+      "bytes": 4935901576
+    },
+    {
+      "file": "HeartMuLa-oss-3B\\model-00004-of-00004.safetensors",
+      "bytes": 950588000
+    },
+    {
+      "file": "HeartCodec-oss\\model-00001-of-00002.safetensors",
+      "bytes": 4930472472
+    },
+    {
+      "file": "HeartCodec-oss\\model-00002-of-00002.safetensors",
+      "bytes": 1707911436
+    }
+  ],
+  "runtime": "Standalone heartlib with NF4 BF16 and CPU codec; no ComfyUI imports",
+  "source_repositories": [
+    "https://huggingface.co/HeartMuLa/HeartMuLa-oss-3B",
+    "https://huggingface.co/HeartMuLa/HeartCodec-oss"
+  ],
+  "runtime_configuration": {
+    "precision": "NF4/BF16",
+    "codec_device": "cpu",
+    "cfg_scale": 1,
+    "min_seconds": 10,
+    "max_seconds": 60
+  }
+}

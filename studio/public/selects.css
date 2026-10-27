@@ -1,0 +1,41 @@
+
+/* One native select treatment, including asynchronously populated model/voice lists. */
+html body select:not([multiple]){
+ appearance:none!important;-webkit-appearance:none!important;
+ height:42px!important;min-height:42px;box-sizing:border-box;
+ padding:0 38px 0 12px!important;border:1px solid var(--line,#d3d5dc)!important;border-radius:10px!important;
+ background-color:var(--raised,#f3f4f6)!important;color:var(--text,#252735)!important;
+ background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%)!important;
+ background-position:calc(100% - 18px) 18px,calc(100% - 13px) 18px!important;background-size:5px 5px!important;background-repeat:no-repeat!important;
+ font:400 13px/1.4 'Segoe UI','Microsoft JhengHei',sans-serif!important;cursor:pointer;
+ text-overflow:ellipsis;transition:border-color 160ms,box-shadow 160ms;
+}
+html body select:not([multiple]):hover:not(:disabled){border-color:var(--accent,#70609b)!important}
+html body select:not([multiple]):focus-visible{outline:2px solid var(--accent,#70609b);outline-offset:2px;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent,#70609b) 10%,transparent)}
+html body select:disabled{opacity:.5;cursor:not-allowed}
+html body select option{background:var(--raised,#f3f4f6);color:var(--text,#252735);font:inherit}
+@media(prefers-reduced-motion:reduce){html body select{transition:none!important}}
+
+/* Customizable native pickers retain browser keyboard navigation and form semantics. */
+@supports (appearance:base-select){
+ html body select:not([multiple]),html body select:not([multiple])::picker(select){appearance:base-select!important;-webkit-appearance:base-select!important}
+ html body select:not([multiple]){display:flex;align-items:center;gap:10px;padding:0 12px!important;background-image:none!important;border-radius:12px!important}
+ html body select::picker-icon{color:var(--muted,#626573);transition:rotate 260ms cubic-bezier(.2,.75,.25,1);margin-left:auto}
+ html body select:open::picker-icon{rotate:180deg}
+ html body select::picker(select){
+  margin-block:8px;padding:6px;border:1px solid var(--line,#d3d5dc);border-radius:16px;
+  background:var(--surface,#ffffff);color:var(--text,#252735);
+  box-shadow:0 18px 44px #00000024,0 3px 10px #0000000d;
+  max-height:min(340px,50dvh);overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;
+  opacity:0;transform:translateY(-6px) scale(.985);transform-origin:top center;
+  transition:opacity 180ms ease,transform 260ms cubic-bezier(.2,.75,.25,1),display 260ms allow-discrete,overlay 260ms allow-discrete;
+ }
+ html body select:open::picker(select){opacity:1;transform:translateY(0) scale(1)}
+ @starting-style{html body select:open::picker(select){opacity:0;transform:translateY(-6px) scale(.985)}}
+ html body select option{display:flex;align-items:center;gap:10px;min-height:40px;padding:10px 12px;margin:2px 0;border:0;border-radius:10px;background:transparent;color:var(--text,#252735);white-space:normal;overflow-wrap:anywhere;font-size:13px;cursor:pointer}
+ html body select option:checked{background:color-mix(in srgb,var(--accent,#70609b) 12%,var(--surface,#fff));color:var(--accent,#70609b);font-weight:600}
+ html body select option:hover,html body select option:focus{background:color-mix(in srgb,var(--accent,#70609b) 9%,var(--surface,#fff));outline:none}
+ html body select option::checkmark{color:var(--accent,#70609b);order:1;margin-left:auto}
+ html body select option:disabled{opacity:.45;cursor:not-allowed}
+ @media(prefers-reduced-motion:reduce){html body select::picker(select),html body select::picker-icon{transition:none!important;transform:none!important}}
+}

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LocalMuse 本機繆思</title><link rel="stylesheet" href="/style.css"></head>
+<body><aside class="sidebar"><h2>我的對話</h2><button id="clear" class="new-chat">＋ 新增對話</button><nav id="conversations" aria-label="對話清單"></nav><footer>對話保留於目前分頁，重新整理即清除</footer></aside>
+<main><header class="brand"><div class="brand-icon">✦</div><div><h1>LocalMuse 本機繆思</h1><p>本機推論 · 文字對話</p></div><span id="connection" class="connection">● 正在連線</span></header>
+<section class="toolbar"><div class="model-picker"><label for="model-select">模型</label><select id="model-select" disabled></select><button id="switch" class="icon-button" title="載入所選模型" aria-label="載入所選模型" disabled>↻</button></div><div class="toolbar-actions"><button id="new-top">新增對話</button><button id="settings">設定</button><span class="local-pill">本機模式⌄</span></div></section>
+<div class="tool-strip"><span class="handle"></span>對話工具 <strong id="model">正在連線…</strong><span class="strip-end">文字模式</span></div>
+<section id="messages" aria-live="polite"></section>
+<form id="chat"><div class="generation"><span class="handle"></span><span>生成設定</span><span id="status" role="status">準備就緒</span></div><div class="compose"><span class="compose-icon" aria-hidden="true">✧</span><label class="sr-only" for="prompt">輸入訊息</label><textarea id="prompt" placeholder="輸入訊息" rows="2" required></textarea><button id="send" type="submit">送出</button></div><p class="input-hint">Enter 送出 / Shift + Enter 換行 · 切換模型會開始新對話</p></form></main>
+<dialog id="settings-dialog"><h2>對話設定</h2><p>推論引擎：llama.cpp · 全程本機執行</p><p>上下文：4096 token<br>單次回答上限：1024 token<br>目前支援文字聊天，尚未開放圖片與附件。</p><p>對話只保留在此分頁的記憶體中。</p><button id="close-settings">關閉</button></dialog><script src="/app.js"></script></body></html>

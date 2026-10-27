@@ -1,0 +1,60 @@
+{
+  "architectures": [
+    "HeartCodec"
+  ],
+  "attention_head_dim": 64,
+  "causal": true,
+  "codebook_dim": 32,
+  "codebook_size": 8192,
+  "commitment_weight": 1.0,
+  "decay": 0.9,
+  "default_kernel_size": 7,
+  "delay_kernel_size": 5,
+  "dim": 512,
+  "downsample_factors": [
+    3,
+    4,
+    4,
+    4,
+    5
+  ],
+  "downsample_kernel_sizes": [
+    6,
+    8,
+    8,
+    8,
+    10
+  ],
+  "in_channels": 1024,
+  "init_channel": 64,
+  "latent_hidden_dim": 128,
+  "model_type": "heartcodec",
+  "norm_type": "ada_norm_single",
+  "num_attention_heads": 24,
+  "num_bands": 1,
+  "num_layers": 24,
+  "num_layers_2": 6,
+  "num_quantizers": 8,
+  "num_samples": 2,
+  "out_channels": 256,
+  "res_kernel_size": 7,
+  "sample_rate": 48000,
+  "threshold_ema_dead_code": 2,
+  "torch_dtype": "float32",
+  "transformers_version": "4.45.1",
+  "upsample_factors": [
+    5,
+    4,
+    4,
+    4,
+    3
+  ],
+  "upsample_kernel_sizes": [
+    10,
+    8,
+    8,
+    8,
+    6
+  ],
+  "use_cosine_sim": false
+}

@@ -1,0 +1,37 @@
+.webcam-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 28px;color:var(--muted,#9ca3af);font-size:12px}
+.webcam-tools button,.webcam-tools select{min-height:36px;font-size:12px;padding:7px 10px}
+.webcam-tools label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.webcam-tools input[type=checkbox]{accent-color:var(--accent,#7560dc)}
+.webcam-tools button[data-on=true]{border-color:var(--accent,#7560dc);color:var(--accent,#7560dc)}
+.webcam-tools .webcam-status{flex:1 1 180px;line-height:1.6}
+.webcam-popover{position:fixed;inset:auto 24px 130px auto;z-index:1000;width:min(390px,calc(100vw - 32px));max-height:calc(100dvh - 100px);overflow:auto;padding:16px;background:var(--surface,#172033);color:var(--text,#edf0f6);border:1px solid var(--edge,#46516b);border-radius:18px;box-shadow:0 12px 50px #0004}
+.webcam-popover[hidden]{display:none}
+.webcam-popover header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:600;font-size:14px}
+.webcam-popover header button{padding:4px 8px;min-height:30px;font-size:12px}
+.webcam-popover video{display:block;width:100%;max-height:245px;background:#090d18;border-radius:10px;object-fit:contain}
+.webcam-popover .webcam-device,.webcam-popover .webcam-model{display:flex;flex-direction:column;gap:6px;font-size:12px;margin-top:12px}
+.webcam-popover select{width:100%;min-height:36px;padding:6px;max-width:100%}
+.webcam-popover p{font-size:12px;line-height:1.7;color:var(--muted,#9ca3af);margin:10px 0 0}
+.webcam-popover .webcam-light{color:#3aa775;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.webcam-popover .webcam-light::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+.webcam-popover .webcam-shot{margin-top:12px;border-top:1px solid var(--edge,#46516b);padding-top:10px}
+.webcam-shot img{display:block;width:100%;max-height:180px;object-fit:contain;border-radius:8px;margin-top:8px;background:#090d18}
+.webcam-shot[hidden]{display:none}
+@media(max-width:800px){.webcam-tools{margin:6px 14px}.webcam-popover{right:16px;bottom:160px}.webcam-tools .webcam-status{flex-basis:100%}}
+
+/* Camera controls: a quiet, aligned accessory panel above the composer. */
+.panel .webcam-tools{position:relative;z-index:1;flex:0 0 auto;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 32px 10px;padding:12px 14px;border:1px solid var(--line,#d6d8dc);border-radius:18px;background:var(--surface,#fff);color:var(--text,#252833);box-shadow:0 3px 14px #00000004;font-size:13px}
+.panel .webcam-tools button{flex:0 0 auto;min-height:40px;margin:0;padding:9px 14px;border:1px solid var(--line,#d6d8dc);border-radius:12px;font:inherit;font-weight:600;line-height:1.4;background:var(--raised,#f3f4f5);color:var(--text,#252833);box-shadow:none;transition:background .18s ease,border-color .18s ease}
+.panel .webcam-tools button[hidden]{display:none}
+.panel .webcam-tools #webcamToggle{border-color:color-mix(in srgb,var(--accent,#48604c) 35%,var(--line,#d6d8dc));background:color-mix(in srgb,var(--accent,#48604c) 9%,var(--surface,#fff));color:var(--text,#252833)}
+.panel .webcam-tools #webcamToggle[data-on=true]{border-color:var(--accent,#48604c);background:color-mix(in srgb,var(--accent,#48604c) 16%,var(--surface,#fff))}
+.panel .webcam-tools label{display:inline-flex;align-items:center;flex:0 0 auto;gap:8px;margin:0;padding:9px 12px;min-height:40px;border:1px solid transparent;border-radius:12px;line-height:1.4;color:var(--muted,#606675);font-size:13px;cursor:pointer}
+.panel .webcam-tools label:has(input:checked){background:color-mix(in srgb,var(--accent,#48604c) 8%,var(--surface,#fff));border-color:color-mix(in srgb,var(--accent,#48604c) 18%,transparent);color:var(--text,#252833)}
+.panel .webcam-tools input[type=checkbox]{width:16px;height:16px;min-height:0;flex:0 0 16px;margin:0;padding:0;accent-color:var(--accent,#48604c);cursor:pointer}
+.panel .webcam-tools .webcam-status{flex:1 1 220px;min-width:0;margin:0 0 0 auto;padding:4px 0 4px 14px;border-left:1px solid var(--line,#d6d8dc);font-size:12px;line-height:1.6;color:var(--muted,#606675);overflow-wrap:anywhere}
+.panel .webcam-tools button:focus-visible,.panel .webcam-tools label:has(input:focus-visible){outline:2px solid var(--accent,#48604c);outline-offset:3px}
+.panel .webcam-tools button:disabled,.panel .webcam-tools label:has(input:disabled){opacity:.55;cursor:default}
+.webcam-popover{border-color:var(--line,#d6d8dc);border-radius:22px;padding:18px;box-shadow:0 18px 60px #00000026}
+@media(max-width:1000px){.panel .webcam-tools .webcam-status{flex-basis:100%;margin:0;padding:10px 2px 0;border-left:0;border-top:1px solid var(--line,#d6d8dc)}}
+@media(max-width:700px){.panel .webcam-tools{margin:14px 14px 8px;padding:10px;gap:8px;border-radius:16px}.panel .webcam-tools button,.panel .webcam-tools label{min-height:42px;font-size:12px;padding:9px 10px}}
+@media(prefers-reduced-motion:reduce){.panel .webcam-tools button{transition:none}}

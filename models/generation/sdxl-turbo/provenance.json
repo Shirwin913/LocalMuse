@@ -1,0 +1,9 @@
+{
+  "file": "model.safetensors",
+  "bytes": 6938081905,
+  "sha256": "e869ac7d6942cb327d68d5ed83a40447aadf20e0c3358d98b2cc9e270db0da26",
+  "source": "Existing local SDXL Turbo checkpoint",
+  "config_source": "https://huggingface.co/stabilityai/sdxl-turbo",
+  "runtime": "diffusers",
+  "copied_original_retained": true
+}
