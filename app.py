@@ -8,6 +8,7 @@ import urllib.request
 import urllib.error
 import webbrowser
 from pathlib import Path
+from model_catalog import load_catalog
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 ROOT = Path(__file__).resolve().parent
@@ -15,8 +16,7 @@ MODEL_ROOT = Path.home() / '.ollama' / 'models'
 ENGINE_URL = 'http://127.0.0.1:8091'
 
 def catalog():
-    items = json.loads((ROOT / 'models/catalog.json').read_text(encoding='utf-8'))
-    return {item['id']: item for item in items if (ROOT / 'models' / item['model']).is_file()}
+    return load_catalog(ROOT / 'models')
 
 def models():
     return {key: str(ROOT / 'models' / item['model']) for key, item in catalog().items()}

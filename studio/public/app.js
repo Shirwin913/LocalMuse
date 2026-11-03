@@ -298,13 +298,15 @@ async function loadModels() {
     const res = await fetch('/api/models');
     const models = await res.json();
 
+    if (!res.ok || !Array.isArray(models)) throw Error('模型清單讀取失敗');
     const chosen = modelSelect.value;
     modelSelect.innerHTML = '';
 
-    if (!res.ok || !Array.isArray(models) || models.length === 0) {
+    if (models.length === 0) {
       const option = document.createElement('option');
-      option.value = 'hf.co/empero-ai/Qwythos-9B-v2-GGUF:Q4_K_M';
-      option.textContent = 'Qwythos 9B v2';
+      option.value = '';
+      option.textContent = '請將GGUF模型加入models後重新整理';
+      option.disabled = true;
       modelSelect.appendChild(option);
       return;
     }
@@ -316,12 +318,13 @@ async function loadModels() {
       option.value = model.name;
 
       // 使用者看到的名稱
-      option.textContent = getModelDisplayName(model.name);
+      option.textContent = model.label || getModelDisplayName(model.name);
 
       modelSelect.appendChild(option);
     });
 
-    selectModel(chosen || 'qwen2.5:7b');
+    const preferred = chosen || 'qwen2.5:7b';
+    modelSelect.value = models.some(model => model.name === preferred) ? preferred : models[0].name;
   } catch (err) {
     console.error('模型列表讀取失敗：', err);
   }
@@ -1075,7 +1078,7 @@ h3QualitySelect.onchange=()=>{if(h3QualitySelect.value==='480p'){savedVideoSetti
  for(const option of creationMode.options){if(!['auto','chat',...d.modes].includes(option.value)){option.disabled=true;option.hidden=true;}if(option.value==='image-edit')option.textContent='圖生圖／參考圖生成';if(option.value==='text-image')option.textContent='文字生成圖片';if(option.value==='text-video')option.textContent='文字生成影片';if(option.value==='video')option.textContent='圖片生成影片';}
 }catch(e){videoStatus.textContent='獨立生成引擎未就緒：'+e.message;}})();
 
-(()=>{const button=document.createElement('button');button.type='button';button.textContent='本機模型';button.onclick=()=>runAction(async()=>{const d=await api('/api/local-models');const dialog=document.createElement('dialog');dialog.className='appearance-dialog';const title=document.createElement('h2');title.textContent='專案模型清單';dialog.append(title);for(const m of d.models){const card=document.createElement('p');card.textContent=m.label+' · '+m.kind+' · '+(m.bytes/1073741824).toFixed(2)+' GB · '+(m.ready?'已安裝':'缺少檔案');const detail=document.createElement('small');detail.textContent=m.file;card.append(document.createElement('br'),detail);dialog.append(card);}const note=document.createElement('p');note.textContent='尚待獨立化：'+d.pending.join('、')+'。目前不會自動下載其他大型模型。';const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>{dialog.close();dialog.remove();};dialog.append(note,close);document.body.append(dialog);dialog.showModal();});document.querySelector('.toolbar').append(button);})();
+(()=>{const button=document.createElement('button');button.type='button';button.textContent='本機模型';button.onclick=()=>runAction(async()=>{const d=await api('/api/local-models');const dialog=document.createElement('dialog');dialog.className='appearance-dialog';const title=document.createElement('h2');title.textContent='專案模型清單';dialog.append(title);for(const m of d.models){const card=document.createElement('p');card.textContent=m.label+' · '+m.kind+' · '+(m.bytes/1073741824).toFixed(2)+' GB · '+(m.ready?(m.discovered?'已找到檔案（未驗證）':'已安裝'):'缺少檔案');const detail=document.createElement('small');detail.textContent=m.file;card.append(document.createElement('br'),detail);dialog.append(card);}const note=document.createElement('p');note.textContent='新增聊天模型：將GGUF放進models/或其子資料夾（不含generation/），按上方重新整理模型清單即可。顯示名稱與視覺投影檔可在models/catalog.json設定。圖片、影片和音樂模型仍需相容後端與驗證。';const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>{dialog.close();dialog.remove();};dialog.append(note,close);document.body.append(dialog);dialog.showModal();});document.querySelector('.toolbar').append(button);})();
 
 // Infrequent information stays accessible without crowding the chat toolbar.
 (()=>{const toolbar=document.querySelector('.toolbar');const {menu,content}=createHeaderMenu('更多');menu.classList.add('secondary-tools-menu');for(const button of Array.from(toolbar.querySelectorAll(':scope > button'))){if(['資源監控','本機模型'].includes(button.textContent.trim()))content.append(button);}toolbar.append(menu);})();

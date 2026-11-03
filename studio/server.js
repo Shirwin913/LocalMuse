@@ -27,7 +27,7 @@ app.get(['/login.html','/admin-page.html'],(req,res)=>res.redirect('/'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const history = require('./storage')(app);
-app.get('/api/local-models',(req,res)=>{try{const fs=require('fs');const root=path.resolve(__dirname,'..');const language=JSON.parse(fs.readFileSync(path.join(root,'models/catalog.json'),'utf8'));const generation=JSON.parse(fs.readFileSync(path.join(root,'models/generation/catalog.json'),'utf8'));const result=[];for(const m of language){const file=path.join(root,'models',m.model);result.push({id:m.id,label:m.label,kind:m.projector?'文字／視覺':'文字',file:m.model,bytes:fs.existsSync(file)?fs.statSync(file).size:0,ready:fs.existsSync(file)})}for(const m of generation.models){const file=path.join(root,'models/generation',m.checkpoint);result.push({id:m.id,label:m.label,kind:m.kind==='music'?'音樂生成':m.kind==='video'?'影片生成':'圖片生成',file:m.checkpoint,bytes:fs.existsSync(file)?(m.bytes||fs.statSync(file).size):0,ready:fs.existsSync(file),modes:m.modes})}res.json({models:result,pending:generation.pending});}catch(e){res.status(500).json({error:e.message});}});
+app.get('/api/local-models',async(req,res)=>{try{const fs=require('fs');const root=path.resolve(__dirname,'..');const response=await fetch(OLLAMA_URL+'/api/tags',{signal:AbortSignal.timeout(10000)});if(!response.ok)throw Error('無法取得本機模型清單');const language=(await response.json()).models||[];const generation=JSON.parse(fs.readFileSync(path.join(root,'models/generation/catalog.json'),'utf8'));const result=[];for(const m of language){result.push({id:m.name,label:m.label||m.name,kind:m.vision?'文字／視覺':'文字',file:m.file,bytes:m.size,ready:true,discovered:m.discovered})}for(const m of generation.models){const file=path.join(root,'models/generation',m.checkpoint);result.push({id:m.id,label:m.label,kind:m.kind==='music'?'音樂生成':m.kind==='video'?'影片生成':'圖片生成',file:m.checkpoint,bytes:fs.existsSync(file)?(m.bytes||fs.statSync(file).size):0,ready:fs.existsSync(file),modes:m.modes})}res.json({models:result,pending:generation.pending});}catch(e){res.status(500).json({error:e.message});}});
 app.get('/api/generation-engine',async(req,res)=>{try{const response=await fetch((process.env.COMFY_URL||'http://127.0.0.1:8789')+'/capabilities',{signal:AbortSignal.timeout(3000)});if(!response.ok)throw Error('生成引擎未就緒');res.json(await response.json());}catch(e){res.status(503).json({error:e.message});}});
 require('./comfy-integration')(app, upload, history);
 require('./video-analysis')(app, history);
@@ -53,7 +53,9 @@ app.get('/api/models', async (req, res) => {
 
     const models = (data.models || []).map((model) => ({
       name: model.name,
-      size: model.size
+      label: model.label,
+      size: model.size,
+      discovered: model.discovered
     }));
 
     res.json(models);

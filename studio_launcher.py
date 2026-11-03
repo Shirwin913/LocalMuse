@@ -20,7 +20,7 @@ class Adapter(BaseHTTPRequestHandler):
         return name
     def model_info(self,key,item):
         f=ROOT/'models'/item['model']
-        return {'name':key,'model':key,'size':f.stat().st_size,'details':{'format':'gguf','family':key.split(':')[0]}}
+        return {'name':key,'model':key,'label':item.get('label',key),'file':item['model'],'vision':bool(item.get('projector')),'discovered':bool(item.get('discovered')),'size':f.stat().st_size,'details':{'format':'gguf','family':key.split(':')[0]}}
     def do_GET(self):
         if self.path=='/api/tags':
             return self.reply(200,{'models':[self.model_info(k,v) for k,v in catalog().items()]})
