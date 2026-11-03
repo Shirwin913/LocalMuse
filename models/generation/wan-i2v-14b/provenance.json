@@ -1,0 +1,6 @@
+{
+  "repo": "Wan-AI/Wan2.1-I2V-14B-480P-Diffusers",
+  "revision": "b184e23a8a16b20f108f727c902e769e873ffc73",
+  "source": "Existing local wan2.1_i2v_480p_14B_fp16.safetensors; shared project Wan VAE/UMT5 and CLIP-H image encoder",
+  "status": "pending_quantized_real_validation"
+}

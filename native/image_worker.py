@@ -17,8 +17,29 @@ from diffusers import StableDiffusionXLPipeline,StableDiffusionXLImg2ImgPipeline
 if not torch.cuda.is_available():raise RuntimeError('獨立生成需要可用的 CUDA 顯示卡')
 config=json.loads((ROOT/'models/generation/catalog.json').read_text(encoding='utf-8'))['models'][0]
 folder=ROOT/'models/generation'
-cls=StableDiffusionXLImg2ImgPipeline if job['mode']=='image-edit' else StableDiffusionXLPipeline
+reference=job.get('image_method')=='reference'
+cls=StableDiffusionXLImg2ImgPipeline if job['mode']=='image-edit' and not reference else StableDiffusionXLPipeline
 pipe=cls.from_single_file(str(folder/config['checkpoint']),config=str(folder/config['config']),torch_dtype=torch.float16,local_files_only=True,use_safetensors=True)
+reference_embeds=None
+if reference:
+    from transformers import CLIPVisionModelWithProjection,CLIPImageProcessor
+    from safetensors.torch import load_file
+    adapter_folder=folder/'ip-adapter'
+    encoder=CLIPVisionModelWithProjection.from_pretrained(str(adapter_folder/'image_encoder'),torch_dtype=torch.float16,local_files_only=True).eval().to('cuda')
+    processor=CLIPImageProcessor()
+    sources=[Image.open(ROOT/'generated/input'/name).convert('RGB') for name in job.get('reference_images',[job['image']])]
+    pixels=processor(images=sources,return_tensors='pt').pixel_values.to('cuda',dtype=torch.float16)
+    with torch.inference_mode():reference_embeds=encoder(pixels).image_embeds.mean(dim=0,keepdim=True).unsqueeze(1)
+    encoder.to('cpu')
+    weights=load_file(str(adapter_folder/'adapter.safetensors'))
+    adapter={'image_proj':{},'ip_adapter':{}}
+    for key,value in weights.items():
+        section,suffix=key.split('.',1)
+        adapter[section][suffix]=value
+    pipe.load_ip_adapter(adapter,subfolder='',weight_name='adapter.safetensors',image_encoder_folder=None)
+    pipe.set_ip_adapter_scale(0.6)
+    del encoder,pixels,weights,adapter
+    torch.cuda.empty_cache()
 pipe.enable_model_cpu_offload()
 pipe.enable_vae_slicing()
 pipe.enable_vae_tiling()
@@ -28,7 +49,8 @@ def callback(pipeline,index,timestep,kwargs):
     progress('生成圖片',index+1,steps)
     return kwargs
 params={'prompt':job['prompt'],'width':job['width'],'height':job['height'],'num_inference_steps':steps,'guidance_scale':0.0,'generator':torch.Generator('cpu').manual_seed(job['seed']),'callback_on_step_end':callback}
-if job['mode']=='image-edit':
+if reference:params['ip_adapter_image_embeds']=[reference_embeds]
+if job['mode']=='image-edit' and not reference:
     source=Image.open(ROOT/'generated/input'/job['image']).convert('RGB')
     params['image']=ImageOps.fit(source,(job['width'],job['height']))
     params['strength']=0.75

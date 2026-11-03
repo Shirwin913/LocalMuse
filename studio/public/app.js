@@ -9,6 +9,30 @@ const fileInput = document.getElementById('fileInput');
 const fileBtn = document.getElementById('fileBtn');
 const filePreview = document.getElementById('filePreview');
 
+// In-app browsers may not implement window.prompt/confirm. Use accessible HTML dialogs.
+function appDecision(message,initial){
+  return new Promise(resolve=>{
+    const editing=typeof initial==='string',previous=document.activeElement;
+    const dialog=document.createElement('dialog');dialog.className='appearance-dialog';
+    dialog.setAttribute('aria-label',editing?'重新命名對話':'確認操作');
+    const title=document.createElement('h2');title.textContent=editing?'重新命名對話':'確認操作';
+    const description=document.createElement('p');description.textContent=message;description.style.whiteSpace='pre-line';
+    dialog.append(title,description);
+    let field,result=editing?null:false;
+    if(editing){const label=document.createElement('label');label.textContent='對話名稱';field=document.createElement('input');field.type='text';field.value=initial;field.maxLength=120;field.setAttribute('aria-label','對話名稱');label.append(field);dialog.append(label);}
+    const footer=document.createElement('div');footer.className='appearance-footer';
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='取消';cancel.onclick=()=>dialog.close();
+    const accept=document.createElement('button');accept.type='button';accept.textContent=editing?'儲存名稱':'確定';
+    accept.onclick=()=>{if(editing&&!field.value.trim()){field.focus();return;}result=editing?field.value.trim():true;dialog.close();};
+    footer.append(cancel,accept);dialog.append(footer);
+    dialog.addEventListener('close',()=>{dialog.remove();if(previous?.isConnected)previous.focus();resolve(result);},{once:true});
+    dialog.addEventListener('keydown',event=>{if(editing&&event.key==='Enter'&&event.target===field){event.preventDefault();accept.click();}});
+    document.body.append(dialog);dialog.showModal();if(field){field.focus();field.select();}else cancel.focus();
+  });
+}
+const askText=(message,value)=>appDecision(message,value);
+const askConfirm=message=>appDecision(message);
+
 let selectedFile = null;
 const dropZone = document.querySelector('.panel');
 let dragDepth = 0;
@@ -127,10 +151,12 @@ async function checkLlamaCpp() {
     const res = await fetch('/api/health');
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.message || 'llama.cpp 連線失敗');
-    statusBox.textContent = 'llama.cpp 已連線';
+    statusBox.textContent = '已就緒';
+    statusBox.title = '本機聊天服務已連線';
     statusBox.className = 'status ok';
   } catch (err) {
-    statusBox.textContent = 'llama.cpp 未連線';
+    statusBox.textContent = '未連線';
+    statusBox.title = '請確認專案服務是否已啟動';
     statusBox.className = 'status error';
     addMessage('system', '提醒：請使用專案 start.bat 啟動 llama.cpp 模型服務。');
   }
@@ -140,9 +166,10 @@ let activeId = null;
 let busyUI = false;
 const sidebar = document.createElement('aside');
 sidebar.className = 'conversation-sidebar';
-sidebar.innerHTML = '<h2>我的對話</h2><button type="button" id="newConversation">＋ 新增對話</button><nav aria-label="歷史對話" id="conversationList"></nav><small>紀錄與附件儲存在本機資料庫</small>';
+sidebar.innerHTML = '<h2>我的對話</h2><button type="button" id="newConversation">＋ 新增對話</button><nav aria-label="歷史對話" id="conversationList"></nav><small title="對話與附件儲存在這台電腦，不會隨 Git 上傳">資料保存在本機</small>';
 document.querySelector('.app').prepend(sidebar);
 clearBtn.textContent = '新增對話';
+clearBtn.hidden = true;
 fileInput.accept = '.pdf,.txt,.docx,image/*';
 async function api(url, options) {
   const res = await fetch(url, options);
@@ -172,12 +199,12 @@ async function refreshConversations() {
     open.onclick=()=>runAction(()=>openConversation(c.id));
     const rename=document.createElement('button'); rename.type='button'; rename.textContent='✎'; rename.setAttribute('aria-label',`重新命名 ${c.title}`);
     rename.onclick=()=>runAction(async()=>{
-      const title=prompt('對話名稱',c.title); if (!title?.trim()) return;
+      const title=await askText('請輸入新的對話名稱',c.title); if (!title?.trim()) return;
       await api(`/api/conversations/${c.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({title})}); await refreshConversations();
     });
     const remove=document.createElement('button'); remove.type='button'; remove.textContent='×'; remove.setAttribute('aria-label',`刪除 ${c.title}`);
     remove.onclick=()=>runAction(async()=>{
-      if (!confirm(`刪除「${c.title}」及其訊息與附件？此操作無法復原。`)) return;
+      if (!await askConfirm(`刪除「${c.title}」及其訊息與附件？此操作無法復原。`)) return;
       await api(`/api/conversations/${c.id}`,{method:'DELETE'});
       if(c.id===activeId) {const remaining=await api('/api/conversations'); if(remaining.length) await openConversation(remaining[0].id); else await newConversation();}
       await refreshConversations();
@@ -214,7 +241,7 @@ clearBtn.onclick=()=>runAction(newConversation);
 modelSelect.addEventListener('change',()=>runAction(async()=>{
   if(activeId) await api(`/api/conversations/${activeId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:modelSelect.value})});
 }));
-form.addEventListener('submit', e=>{
+form.addEventListener('submit', async e=>{
   e.preventDefault();
   const route=resolveCreationMode();
   if(busyUI)return;
@@ -227,7 +254,7 @@ form.addEventListener('submit', e=>{
   if(creationMode.value==='auto'&&route==='music'){creationMode.value='music';creationMode.onchange();updateRouteHint();videoStatus.textContent='已切換音樂生成。請確認風格、歌詞與時間，再按「生成音樂」；歷史聊天內容不會自動填入。';input.focus();return;}
   if(['video','text-video','text-image','image-edit','music'].includes(route)){
 
-    if(creationMode.value!=='auto'||confirm('這次要送到 獨立生成引擎 生成影片嗎？\n確定：生成影片\n取消：當作一般聊天送出')){submitVideo(route);return;}
+    if(creationMode.value!=='auto'||await askConfirm('這次要送到 獨立生成引擎 生成影片嗎？\n確定：生成影片\n取消：當作一般聊天送出')){submitVideo(route);return;}
   }
   if(busyUI || (!input.value.trim()&&!selectedFile)) return;
   runAction(async()=>{
@@ -455,9 +482,9 @@ async function submitVideo(mode=resolveCreationMode()){
   if(!input.value.trim())throw Error('請填入提示詞');
   if(mode==='video'&&!selectedFile)throw Error('請拖入圖片');
   if(mode!=='video'&&selectedFile)throw Error('文字生成不使用附件，請先移除附件');
-  const body=new FormData();body.append('conversationId',activeId);body.append('text',input.value.trim());const settings=getVideoSettings(mode);body.append('seconds',settings.seconds);body.append('ratio',settings.ratio);body.append('megapixels',settings.megapixels);body.append('mode',mode);if(mode==='image-edit'){if(!editFiles.length)throw Error('請先選擇參考圖片');for(const f of editFiles)body.append('file',f);}else if(selectedFile)body.append('file',selectedFile);
+  const body=new FormData();body.append('conversationId',activeId);body.append('text',input.value.trim());const settings=getVideoSettings(mode);body.append('seconds',settings.seconds);body.append('ratio',settings.ratio);body.append('megapixels',settings.megapixels);body.append('mode',mode);if(['text-video','video'].includes(mode)){body.append('videoModel',videoModelSelect.value);body.append('h3Profile',h3ProfileSelect.value);body.append('h3Quality',h3QualitySelect.value);body.append('h3OutputResolution',h3OutputSelect.value);}if(['text-image','image-edit'].includes(mode))body.append('imageModel',imageModelSelect.value);if(mode==='image-edit')body.append('imageMethod',imageMethodSelect.value);if(mode==='image-edit'){if(!editFiles.length)throw Error('請先選擇參考圖片');for(const f of editFiles)body.append('file',f);}else if(selectedFile)body.append('file',selectedFile);
   if(recipeSeed.value!=='')body.append('seed',recipeSeed.value);if(restoredRecipe?.mode===mode)body.append('recipeId',restoredRecipe.jobId);
-  if(mode==='music'){body.append('musicModel',musicModelSelect.value);const duration=Number(musicDuration.value);if(!Number.isInteger(duration)||duration<5||duration>360)throw Error('音樂時間需為 5–360 秒');if(musicModelSelect.value==='heartmula'&&(duration<10||duration>60))throw Error('HeartMuLa 音樂時間需為 10–60 秒');body.append('lyrics',musicLyrics.value);body.append('duration',duration);}
+  if(mode==='music'){body.append('musicModel',musicModelSelect.value);if(musicModelSelect.value==='minimax')body.append('musicProfile',musicFlowSelect.value);const duration=Number(musicDuration.value);if(!Number.isInteger(duration)||duration<5||duration>300)throw Error('音樂時間需為 5–300 秒');if(musicModelSelect.value==='heartmula'&&(duration<10||duration>60))throw Error('HeartMuLa 音樂時間需為 10–60 秒');body.append('lyrics',musicLyrics.value);body.append('duration',duration);}
   videoStatus.textContent='正在送到 獨立生成引擎…';
   try{await api('/api/video-jobs',{method:'POST',body});await openConversation(activeId);await checkVideoJobs();}catch(e){videoStatus.textContent='送出失敗：'+e.message;throw e;}
  });
@@ -472,7 +499,7 @@ async function checkVideoJobs(){
   const failed=jobs.filter(j=>j.status==='error');
   if(ongoing.length)videoStatus.textContent=ongoing.map(j=>(j.status==='running'?'獨立生成引擎 正在生成…':'生成任務排隊中…')+(j.error?' '+j.error:'')).join('\n');
   else if(failed.length&&jobs.at(-1)?.status==='error')videoStatus.textContent='生成失敗：'+failed.at(-1).error;
-  else if(jobs.length)videoStatus.textContent='最近一筆生成任務的結果已儲存在對話中；不代表後續聊天已生成檔案。';
+  else if(jobs.length)videoStatus.textContent='';
   else if(!busyUI)videoStatus.textContent='';
   for(const job of jobs){
    const prior=knownVideoStates.get(job.id);knownVideoStates.set(job.id,job.status);
@@ -495,15 +522,15 @@ function attachVideoAnalysis(container,videoId,isImage=false){
  const result=document.createElement('div');result.className='video-analysis-result';const label=document.createElement('label');label.textContent='希望新增或調整的內容（選填）';label.className='video-change-request';
  const changes=document.createElement('textarea');changes.rows=3;changes.maxLength=2000;changes.placeholder=isImage?'例如：保留人物與服裝，加入櫻花背景，改成暖色光線。':'例如：保留人物與服裝，加入飄落的櫻花，鏡頭慢慢拉遠。';label.append(changes);
  const help=document.createElement('small');help.textContent='未指定的特徵會要求保留；新版提示詞需確認後重新生成。';label.append(help);
- let edited=false;changes.addEventListener('input',()=>{edited=true;});if(isImage){const section=document.createElement('section');section.className='image-improve-panel';section.setAttribute('aria-label','改善圖片提示詞');section.append(label,button,result);container.append(section);}else container.append(label,button,result);
+ let edited=false;changes.addEventListener('input',()=>{edited=true;});if(isImage){const section=document.createElement('details');section.className='image-improve-panel';section.setAttribute('aria-label','改善圖片提示詞');const summary=document.createElement('summary');summary.textContent='改善圖片提示詞';section.append(summary,label,button,result);container.append(section);}else container.append(label,button,result);
  function render(data){if(!data)return;result.replaceChildren();
   const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='查看分析與新版提示詞';details.append(summary);
   const requestSummary=document.createElement('p');requestSummary.textContent='本次調整要求：'+(data.requested_changes||'無額外要求')+(data.mode==='image-edit'?'。分析依據為生成結果；再次編輯時請確認參考圖片及順序與這次生成相符。':'');details.append(requestSummary);
   const review=document.createElement('p');review.textContent=data.analysis;details.append(review);
   const revised=document.createElement('textarea');revised.value=data.prompt;revised.rows=6;revised.setAttribute('aria-label','改善後的提示詞，可編輯');details.append(revised);
-  const use=document.createElement('button');use.type='button';use.textContent='使用這份提示詞';use.onclick=()=>{
+  const use=document.createElement('button');use.type='button';use.textContent='使用這份提示詞';use.onclick=async()=>{
    if(busyUI)return;
-   if(input.value.trim()&&!confirm('要以這份提示詞取代目前輸入框內容嗎？'))return;
+   if(input.value.trim()&&!await askConfirm('要以這份提示詞取代目前輸入框內容嗎？'))return;
    input.value=revised.value;creationMode.value=data.mode;creationMode.onchange();input.focus();
    videoStatus.textContent=data.mode==='image-edit'?(editFiles.length?'已填入提示詞，參考圖已保留。請確認圖片順序後按「編輯圖片」。':'已填入提示詞。請依原順序加入參考圖，確認後按「編輯圖片」。'):data.mode==='text-image'?'已填入提示詞，確認後按「生成圖片」。':data.mode==='video'?'請重新附上原始圖片，確認後按「生成影片」。':'已填入提示詞，確認後按「生成影片」。';
   };details.append(use);result.append(details);
@@ -552,27 +579,28 @@ videoSettingsDialog.innerHTML=`<div class="appearance-heading"><h2 id="videoSett
 document.body.append(videoSettingsDialog);
 let savedVideoSettings={};try{savedVideoSettings=JSON.parse(localStorage.getItem('video-settings-v1'))||{};}catch{}
 let settingsMode='video';
+function videoSecondsLimit(mode){return window.nativeGeneration?(mode==='video'?1:mode==='text-video'?3:15):15;}
 function getVideoSettings(mode=creationMode.value){
  if(mode==='auto')mode=selectedFile?.type.startsWith('image/')?'video':'text-video';
  const fallback={ratio:mode==='text-image'?'1:1 (Square)':mode==='text-video'?'16:9 (Widescreen)':'3:2 (Photo)',megapixels:mode==='text-image'?1:.5,seconds:3};
  const value=savedVideoSettings[mode]||{};
- return {ratio:Array.from(document.getElementById('videoRatio').options).some(o=>o.value===value.ratio)?value.ratio:fallback.ratio,megapixels:[.2,.3,.5,.7,1].includes(Number(value.megapixels))?Number(value.megapixels):fallback.megapixels,seconds:Number.isInteger(value.seconds)&&value.seconds>=1&&value.seconds<=15?value.seconds:3};
+ return {ratio:Array.from(document.getElementById('videoRatio').options).some(o=>o.value===value.ratio)?value.ratio:fallback.ratio,megapixels:[.2,.3,.5,.7,1].includes(Number(value.megapixels))?Number(value.megapixels):fallback.megapixels,seconds:Number.isInteger(value.seconds)&&value.seconds>=1&&value.seconds<=videoSecondsLimit(mode)?value.seconds:Math.min(3,videoSecondsLimit(mode))};
 }
 function showVideoSettings(){
  settingsMode=creationMode.value==='auto'?(selectedFile?.type.startsWith('image/')?'video':'text-video'):creationMode.value;const v=getVideoSettings(settingsMode);
  document.getElementById('videoRatio').value=v.ratio;document.getElementById('videoMegapixels').value=v.megapixels;document.getElementById('videoSeconds').value=v.seconds;
- document.getElementById('videoSettingsTitle').textContent=settingsMode==='text-image'?'圖片設定':'影片設定';document.getElementById('videoSeconds').closest('label').hidden=settingsMode==='text-image';videoSettingsDialog.querySelectorAll('.appearance-description').forEach(el=>el.hidden=settingsMode==='text-image');document.getElementById('videoSettingsFeedback').textContent=settingsMode==='text-image'?'Qwen Image 2.1 · 25 步 · 寬高對齊 8 像素。解析度越高，記憶體與時間需求越多。':'';videoSettingsDialog.showModal();
+ document.getElementById('videoSeconds').max=videoSecondsLimit(settingsMode);document.getElementById('videoMegapixels').closest('label').hidden=!!(window.nativeGeneration&&['text-video','video'].includes(settingsMode));document.getElementById('videoSettingsTitle').textContent=settingsMode==='text-image'?'圖片設定':'影片設定';document.getElementById('videoSeconds').closest('label').hidden=settingsMode==='text-image';videoSettingsDialog.querySelectorAll('.appearance-description').forEach(el=>el.hidden=settingsMode==='text-image');document.getElementById('videoSettingsFeedback').textContent=settingsMode==='text-image'?'Qwen Image 2.1 · 25 步 · 寬高對齊 8 像素。解析度越高，記憶體與時間需求越多。':'';if(window.nativeGeneration){videoSettingsDialog.querySelectorAll('.appearance-description').forEach(el=>el.hidden=true);document.getElementById('videoSettingsFeedback').textContent=settingsMode==='text-image'?(imageModelSelect.value==='qwen-image-2.1'?'Qwen Image 2.1：25步，支援約1MP，中文直接生成。':'SDXL Turbo：最長邊768像素，4步快速生成。'):['text-video','video'].includes(settingsMode)&&videoModelSelect.value==='minimax-h3'?'MiniMax H3：含音訊、24 FPS，16:9約512×288；文字最多3秒、圖片目前設定1秒（對齊後約1.63秒）。':settingsMode==='text-video'?'Wan：1–3秒、16 FPS，不含音訊。':settingsMode==='video'?'Wan：目前設定1秒，不含音訊；建議使用接近原圖的比例。':'';}const high480=settingsMode==='text-video'&&videoModelSelect.value==='minimax-h3'&&h3QualitySelect.value==='480p';for(const option of document.getElementById('videoRatio').options)option.disabled=high480&&option.value!=='16:9 (Widescreen)';if(high480){document.getElementById('videoRatio').value='16:9 (Widescreen)';document.getElementById('videoSettingsFeedback').textContent='480p原生生成：864×480、24 FPS、原始20步、含音訊，目前最長設定3秒。'+(h3OutputSelect.value!=='source'?' 生成後CPU放大至'+h3OutputSelect.value+'，非原生高解析；原片保留。':'');}videoSettingsDialog.showModal();
 }
 document.getElementById('videoSettingsButton').onclick=showVideoSettings;
 videoSettingsDialog.querySelector('[data-close]').onclick=()=>videoSettingsDialog.close();
-videoSettingsDialog.querySelector('[data-reset]').onclick=()=>{document.getElementById('videoRatio').value=settingsMode==='text-image'?'1:1 (Square)':settingsMode==='text-video'?'16:9 (Widescreen)':'3:2 (Photo)';document.getElementById('videoMegapixels').value='.5';document.getElementById('videoMegapixels').value=settingsMode==='text-image'?'1':'0.5';document.getElementById('videoSeconds').value=3;};
+videoSettingsDialog.querySelector('[data-reset]').onclick=()=>{document.getElementById('videoRatio').value=settingsMode==='text-image'?'1:1 (Square)':settingsMode==='text-video'?'16:9 (Widescreen)':'3:2 (Photo)';document.getElementById('videoMegapixels').value='.5';document.getElementById('videoMegapixels').value=settingsMode==='text-image'?'1':'0.5';document.getElementById('videoSeconds').value=Math.min(3,videoSecondsLimit(settingsMode));};
 videoSettingsDialog.querySelector('[data-save]').onclick=()=>{
- const seconds=Number(document.getElementById('videoSeconds').value);if(!Number.isInteger(seconds)||seconds<1||seconds>15){document.getElementById('videoSettingsFeedback').textContent='請輸入 1–15 的整數秒數';return;}
+ const seconds=Number(document.getElementById('videoSeconds').value);if(!Number.isInteger(seconds)||seconds<1||seconds>Number(document.getElementById('videoSeconds').max)){document.getElementById('videoSettingsFeedback').textContent='請輸入 1–'+document.getElementById('videoSeconds').max+' 的整數秒數';return;}
  savedVideoSettings[settingsMode]={ratio:document.getElementById('videoRatio').value,megapixels:Number(document.getElementById('videoMegapixels').value),seconds};
  try{localStorage.setItem('video-settings-v1',JSON.stringify(savedVideoSettings));}catch{videoStatus.textContent='設定已套用，但瀏覽器無法儲存偏好。';}
  updateVideoSettingsSummary();videoSettingsDialog.close();
 };
-function updateVideoSettingsSummary(){const v=getVideoSettings();document.getElementById('videoSettingsButton').textContent=`${creationMode.value==='text-image'?'圖片':'影片'}設定 · ${v.ratio.split(' ')[0]} / ${v.megapixels} MP${creationMode.value==='text-image'?'':' / '+v.seconds+' 秒'}`;}
+function updateVideoSettingsSummary(){const v=getVideoSettings();document.getElementById('videoSettingsButton').textContent=`${creationMode.value==='text-image'?'圖片':'影片'}設定 · ${v.ratio.split(' ')[0]} / ${window.nativeGeneration&&['text-video','video'].includes(resolveCreationMode())?'自動尺寸':v.megapixels+' MP'}${creationMode.value==='text-image'?'':' / '+v.seconds+' 秒'}`;}
 creationMode.addEventListener('change',updateVideoSettingsSummary);updateVideoSettingsSummary();
 
 // Clipboard images use the same attachment and preview flow as file selection.
@@ -675,7 +703,7 @@ const resourceButton=document.createElement('button');resourceButton.type='butto
 
 function attachGeneratedImage(container,id,generated=false){const img=document.createElement('img');img.src='/api/attachments/'+id+'?preview=1';img.dataset.messageId=id;img.alt='對話圖片';img.loading='lazy';img.style.cssText='display:block;max-width:100%;max-height:560px;object-fit:contain;margin-top:12px;border-radius:12px';container.append(img);if(generated){
  const edit=document.createElement('button');edit.type='button';edit.className='speech-reply-button';edit.textContent='以這張圖繼續編輯';edit.title='將這張生成結果設為圖片 1，取代目前的參考圖';
- edit.onclick=()=>{if(busyUI)return;if((editFiles.length||selectedFile||input.value.trim())&&!confirm('將以這張生成結果取代目前所有參考圖，並清空輸入框，方便輸入新的修改要求。要繼續嗎？'))return;
+ edit.onclick=async()=>{if(busyUI)return;if((editFiles.length||selectedFile||input.value.trim())&&!await askConfirm('將以這張生成結果取代目前所有參考圖，並清空輸入框，方便輸入新的修改要求。要繼續嗎？'))return;
  const conversation=activeId;
  runAction(async()=>{
   const response=await fetch('/api/attachments/'+id+'?preview=1');if(!response.ok)throw Error('無法讀取圖片，請確認圖片是否仍存在');
@@ -695,11 +723,11 @@ let editFiles=[],editUrls=[];
 const editPanel=document.createElement('div');editPanel.hidden=true;editPanel.className='file-preview';
 const editChoose=document.createElement('input');editChoose.type='file';editChoose.multiple=true;editChoose.accept='image/png,image/jpeg,image/webp';
 const editHelp=document.createElement('p');editHelp.textContent='獨立模式接受一張參考圖片，以 SDXL Turbo 進行圖片轉換。輸出目前為 448 × 448，可能改變構圖與人物，不是 Qwen 的指令式精準編輯。';
-const editList=document.createElement('div');editList.style.cssText='display:flex;flex-wrap:wrap;gap:12px';editPanel.append(editHelp,editChoose,editList);creationTools.after(editPanel);
+const editList=document.createElement('div');editList.style.cssText='display:flex;flex-wrap:wrap;gap:12px';const imageMethodLabel=document.createElement('label');imageMethodLabel.textContent='生成方式 ';const imageMethodSelect=document.createElement('select');imageMethodSelect.id='imageMethod';imageMethodSelect.setAttribute('aria-label','圖片生成方式');imageMethodSelect.innerHTML='<option value="transform">圖生圖：依原圖構圖轉換</option><option value="reference" disabled>參考圖生成：參考外觀與風格</option>';imageMethodLabel.append(imageMethodSelect);editPanel.append(imageMethodLabel,editHelp,editChoose,editList);creationTools.after(editPanel);imageMethodSelect.onchange=()=>{editHelp.textContent=imageMethodSelect.value==='reference'?'參考圖片的外觀與風格重新生成畫面，不保證保留原構圖或人物。每次一張圖片。':'依原圖構圖進行轉換，可能改變人物與細節。每次一張圖片。';if(creationMode.value==='image-edit')form.querySelector('[type=submit]').textContent=imageMethodSelect.value==='reference'?'參考圖生成':'圖生圖';};
 function renderEditFiles(){editUrls.forEach(URL.revokeObjectURL);editUrls=[];editList.replaceChildren();editFiles.forEach((f,i)=>{const item=document.createElement('div'),img=document.createElement('img'),label=document.createElement('div'),remove=document.createElement('button');const url=URL.createObjectURL(f);editUrls.push(url);img.src=url;img.alt='圖片 '+(i+1);img.style.cssText='width:90px;height:90px;object-fit:contain';label.textContent='圖片 '+(i+1)+' · '+f.name;remove.type='button';remove.textContent='移除';remove.onclick=()=>{if(busyUI)return;editFiles.splice(i,1);renderEditFiles();};item.append(img,label,remove);editList.append(item);});}
 function addEditFiles(files){if(busyUI)return;if(editFiles.length+files.length>1||files.some(f=>!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>10*1024*1024)){addMessage('system','最多一張圖片，檔案限 10 MB，格式為 JPG、PNG 或 WebP。');return;}editFiles.push(...files);renderEditFiles();input.focus();}
 editChoose.onchange=()=>{const files=Array.from(editChoose.files);editChoose.value='';addEditFiles(files);};
-const previousModeChange=creationMode.onchange;creationMode.onchange=()=>{previousModeChange();const editing=creationMode.value==='image-edit';editPanel.hidden=!editing;document.getElementById('videoSettingsButton').hidden=editing;document.getElementById('openVideoFolder').hidden=editing||creationMode.value==='text-image';if(editing){document.getElementById('videoControls').hidden=false;input.placeholder='例如：保留圖片 1 的人物與背景，換上圖片 2 的衣服';form.querySelector('[type=submit]').textContent='編輯圖片';}};
+const previousModeChange=creationMode.onchange;creationMode.onchange=()=>{previousModeChange();const editing=creationMode.value==='image-edit';editPanel.hidden=!editing;document.getElementById('videoSettingsButton').hidden=editing;document.getElementById('openVideoFolder').hidden=editing||creationMode.value==='text-image';if(editing){document.getElementById('videoControls').hidden=false;input.placeholder='描述希望生成的畫面；參考圖模式參考外觀與風格，不保證精準保留人物或構圖';form.querySelector('[type=submit]').textContent='編輯圖片';imageMethodSelect.onchange();}};
 
 // Keep the composer tools relevant to the selected task.
 creationTools.classList.add('composer-toolbar');
@@ -717,7 +745,7 @@ function syncComposerTools(){
  document.getElementById('videoControls').hidden=!generating;
  composerSettings.hidden=!generating||editing||route==='music';composerFolder.hidden=!['video','text-video'].includes(route);
  settingsDetail.hidden=!generating||editing||route==='music';
- if(generating&&!editing&&route!=='music'){const v=getVideoSettings(route);composerSettings.textContent=image?'圖片設定':'影片設定';settingsDetail.textContent=v.ratio.split(' ')[0]+' · '+v.megapixels+' MP'+(image?'':' · '+v.seconds+' 秒');}
+ if(generating&&!editing&&route!=='music'){const v=getVideoSettings(route);composerSettings.textContent=image?'圖片設定':'影片設定';settingsDetail.textContent=v.ratio.split(' ')[0]+(window.nativeGeneration&&!image?' · '+v.seconds+' 秒':' · '+v.megapixels+' MP'+(image?'':' · '+v.seconds+' 秒'));}
  routeHint.textContent=creationMode.value==='auto'?'自動 · '+({chat:'一般聊天',video:'圖生影片','text-video':'文生影片',music:'音樂生成','text-image':'文字生成圖片','image-edit':'圖片編輯'}[route]||'一般聊天'):'';
 }
 const composerModeChange=creationMode.onchange;creationMode.onchange=()=>{composerModeChange();syncComposerTools();};
@@ -740,7 +768,7 @@ function renderGenerationProgress(job){if(!job){generationProgress.hidden=true;r
 
 // MiniMax Music 3: caption in the composer; lyrics and duration kept separate.
 const musicPanel=document.createElement('section');musicPanel.className='music-panel';musicPanel.hidden=true;
-musicPanel.innerHTML='<label for="musicLyrics">歌詞 <span>選填，可使用 [Verse]、[Chorus] 分段</span></label><textarea id="musicLyrics" rows="4" maxlength="12000" placeholder="在此輸入歌詞；主輸入框描述曲風、情緒與樂器。留白可嘗試純音樂，結果依模型而定。"></textarea><label class="music-duration" for="musicDuration">最長時間 <input id="musicDuration" type="number" min="5" max="360" step="1" value="60"> 秒</label><small>模型可能提前結束。先以短片段測試；AI 整理提示詞只整理音樂風格，不更動歌詞。</small>';
+musicPanel.innerHTML='<label for="musicLyrics">歌詞 <span>選填，可使用 [Verse]、[Chorus] 分段</span></label><textarea id="musicLyrics" rows="4" maxlength="12000" placeholder="在此輸入歌詞；主輸入框描述曲風、情緒與樂器。留白可嘗試純音樂，結果依模型而定。"></textarea><label class="music-duration" for="musicDuration">最長時間 <input id="musicDuration" type="number" min="5" max="300" step="1" value="60"> 秒</label><small>模型可能提前結束。先以短片段測試；AI 整理提示詞只整理音樂風格，不更動歌詞。</small>';
 creationTools.after(musicPanel);const musicLyrics=document.getElementById('musicLyrics'),musicDuration=document.getElementById('musicDuration');
 const beforeMusicChange=creationMode.onchange;creationMode.onchange=()=>{beforeMusicChange();const music=creationMode.value==='music';musicPanel.hidden=!music;if(music){input.placeholder='描述音樂風格，例如：溫暖的中文抒情歌、柔和女聲、鋼琴與弦樂';form.querySelector('[type=submit]').textContent='生成音樂';}};
 function attachMusicPlayer(container,id){attachRecipeButton(container,id);container.classList.add('music-message');const audio=document.createElement('audio');audio.src='/api/audio/'+id;audio.dataset.messageId=id;audio.controls=true;audio.preload='metadata';audio.style.cssText='display:block;width:100%;margin-top:12px';container.append(audio);}
@@ -759,13 +787,14 @@ function attachRecipeButton(container,id){
  button.onclick=()=>runAction(async()=>{
   const conversation=activeId;
   const data=await api('/api/generation-recipes/'+id);
-  if((input.value.trim()||editFiles.length||selectedFile||musicLyrics.value)&&!confirm('以這次作品的提示詞、參考圖與設定取代目前草稿？'))return;
+  if((input.value.trim()||editFiles.length||selectedFile||musicLyrics.value)&&!await askConfirm('以這次作品的提示詞、參考圖與設定取代目前草稿？'))return;
   const files=[];
   for(const ref of data.references){const response=await fetch('/api/attachments/'+ref.id+'?preview=1');if(!response.ok)throw Error('參考圖片讀取失敗');const blob=await response.blob();files.push(new File([blob],ref.name,{type:ref.type}));}
   if(activeId!==conversation)throw Error('對話已切換，請重新帶入');
   creationMode.value=data.mode;editFiles=data.mode==='image-edit'?files:[];selectedFile=data.mode==='video'?files[0]:null;fileInput.value='';
+  if(['text-video','video'].includes(data.mode)){videoModelSelect.value=data.videoModel||'wan';h3ProfileSelect.value=data.h3Profile||'original';h3QualitySelect.value=data.h3Quality||'standard';h3OutputSelect.value=data.h3OutputResolution||'source';}if(['text-image','image-edit'].includes(data.mode))imageModelSelect.value=data.imageModel||'sdxl-turbo';if(data.mode==='image-edit')imageMethodSelect.value=data.imageMethod||'transform';
   savedVideoSettings[data.mode]={ratio:data.ratio,megapixels:data.megapixels,seconds:data.seconds};
-  musicModelSelect.value=data.musicModel||'minimax';syncMusicModel();musicLyrics.value=data.lyrics||'';musicDuration.value=data.duration||60;input.value=data.prompt;
+  musicModelSelect.value=data.musicModel||'minimax';musicFlowSelect.value=data.musicProfile||'reference';syncMusicModel();musicLyrics.value=data.lyrics||'';musicDuration.value=data.duration||60;input.value=data.prompt;
   restoredRecipe={jobId:data.jobId,mode:data.mode};recipeSeed.value=data.seed;recipeInfo.textContent='已帶入原始流程與種子；相同設定仍可能有細微差異';
   renderEditFiles();renderFilePreview();creationMode.onchange();input.focus();videoStatus.textContent='設定與參考圖已恢復；確認後按生成。';
  });
@@ -782,9 +811,9 @@ function attachTransferButton(container,text){
   areas[0].value=(split?text.slice(0,split.index):text).slice(0,12000);areas[1].value=split?text.slice(split.index+split[0].length).slice(0,12000):'';
   mode.onchange=()=>{dialog.querySelector('.transfer-lyrics').hidden=mode.value!=='music';};
   dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());
-  dialog.querySelector('[data-apply]').onclick=()=>{
+  dialog.querySelector('[data-apply]').onclick=async()=>{
    if(!areas[0].value.trim()){areas[0].focus();return;}
-   if(input.value.trim()&&!confirm('取代目前輸入框的草稿？'))return;
+   if(input.value.trim()&&!await askConfirm('取代目前輸入框的草稿？'))return;
    creationMode.value=mode.value;input.value=areas[0].value.trim();if(mode.value==='music')musicLyrics.value=areas[1].value;
    restoredRecipe=null;recipeSeed.value='';recipeInfo.textContent='使用目前工作流程';creationMode.onchange();dialog.close();input.focus();
   };
@@ -832,7 +861,7 @@ function createHeaderMenu(label){
  function update(){
   section.classList.toggle('is-open',open);handle.setAttribute('aria-expanded',String(open));handle.title=open?'收起生成設定':'拉出生成設定';track.inert=!open;
   const mode=creationMode.selectedOptions[0]?.textContent||'自動判斷';const status=generationProgress.hidden?'':progressLabel.textContent;
-  overview.textContent=mode+(status?' · '+status:'');overview.title=overview.textContent;
+  overview.textContent=mode;overview.title=overview.textContent;
  }
  handle.onclick=()=>{open=!open;update();try{localStorage.setItem('composer-expanded-v1',String(open));}catch{}};
  section.addEventListener('keydown',event=>{if(event.key==='Escape'&&open){open=false;update();handle.focus();try{localStorage.setItem('composer-expanded-v1','false');}catch{}event.stopPropagation();}});
@@ -856,7 +885,7 @@ function createHeaderMenu(label){
  const arrow=document.createElement('span');arrow.className='drawer-arrow';arrow.textContent='⌃';arrow.setAttribute('aria-hidden','true');
  handle.append(grip,label,model,arrow);toolbar.before(drawer);clip.append(toolbar);track.append(clip);drawer.append(track,handle);
  let open=true;try{open=localStorage.getItem('chat-tools-expanded-v1')!=='false';}catch{}
- function update(){drawer.classList.toggle('is-open',open);handle.setAttribute('aria-expanded',String(open));handle.title=open?'收合對話工具':'展開對話工具';track.inert=!open;model.textContent=modelSelect.selectedOptions[0]?.textContent||'選擇模型';}
+ function update(){drawer.classList.toggle('is-open',open);handle.setAttribute('aria-expanded',String(open));handle.title=open?'收合對話工具':'展開對話工具';track.inert=!open;model.textContent=open?'':(modelSelect.selectedOptions[0]?.textContent||'選擇模型');}
  let settleTimer;
  function settle(){clearTimeout(settleTimer);drawer.classList.remove('drawer-settled');if(open)settleTimer=setTimeout(()=>{if(open)drawer.classList.add('drawer-settled');},460);}
  function toggle(){open=!open;settle();if(!open){if(track.contains(document.activeElement))handle.focus();toolbar.querySelectorAll('details[open]').forEach(el=>el.open=false);}update();try{localStorage.setItem('chat-tools-expanded-v1',String(open));}catch{}}
@@ -900,9 +929,10 @@ function createHeaderMenu(label){
 // Music backend is independent of the conversational language model.
 const musicModelLabel=document.createElement('label');musicModelLabel.textContent='音樂生成模型';musicModelLabel.htmlFor='musicModelSelect';
 const musicModelSelect=document.createElement('select');musicModelSelect.id='musicModelSelect';musicModelSelect.add(new Option('MiniMax Music 3','minimax'));musicModelSelect.add(new Option('HeartMuLa 3B · 獨立生成','heartmula'));
+const musicFlowDetails=document.createElement('details');musicFlowDetails.innerHTML='<summary>進階：比較音樂生成流程</summary><label>生成流程 <select id="musicFlowProfile"><option value="global-euler">整段採樣（新流程）</option><option value="reference">分段採樣（舊流程）</option></select></label><small>可用相同提示詞與種子比較效果，音樂自然度仍依結果判斷。</small>';musicPanel.append(musicFlowDetails);const musicFlowSelect=document.getElementById('musicFlowProfile');musicFlowSelect.onchange=()=>{if(restoredRecipe?.mode==='music'){restoredRecipe=null;recipeInfo.textContent='已切換流程，沿用種子供比較';}};
 const musicModelNote=document.createElement('small');musicPanel.prepend(musicModelLabel,musicModelSelect,musicModelNote);
 try{musicModelSelect.value='heartmula';}catch{}
-function syncMusicModel(){const heart=musicModelSelect.value==='heartmula';musicDuration.min=heart?'10':'5';musicDuration.max=heart?'60':'360';musicDuration.value=Math.max(Number(musicDuration.min),Math.min(Number(musicDuration.max),Number(musicDuration.value)||60));musicModelNote.textContent=heart?'HeartMuLa 獨立生成：10–60 秒；風格用逗號分隔，歌詞填在下方。CPU 解碼可能需要數分鐘。':'MiniMax Music 3：5–360 秒；主輸入框描述音樂風格。';}
+function syncMusicModel(){const heart=musicModelSelect.value==='heartmula';musicFlowDetails.hidden=heart;musicDuration.min=heart?'10':'5';musicDuration.max=heart?'60':'300';musicDuration.value=Math.max(Number(musicDuration.min),Math.min(Number(musicDuration.max),Number(musicDuration.value)||60));musicModelNote.textContent=heart?'可生成 10–60 秒音樂，處理可能需要數分鐘。':'MiniMax Music 3：5–300 秒；主輸入框描述音樂風格。';}
 musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music'){restoredRecipe=null;recipeSeed.value='';recipeInfo.textContent='已切換音樂模型，使用該模型目前的工作流程。';}if(musicModelSelect.value==='heartmula'&&Number(recipeSeed.value)>2147483647)recipeSeed.value='';try{localStorage.setItem('music-model-v1',musicModelSelect.value);}catch{}};syncMusicModel();
 
 // Always-visible progress is outside the collapsible settings drawer.
@@ -959,7 +989,8 @@ musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music
   grid.replaceChildren();status.textContent=data.total?'共 '+data.total+' 筆；只顯示自己的生成任務。':'目前沒有符合條件的紀錄。';
   for(const item of data.items){
    const card=document.createElement('article');card.className='studio-card';
-   card.append(text('h3',modes[item.mode]||item.mode),text('span',(statuses[item.status]||item.status)+(item.musicModel?' · '+(item.musicModel==='heartmula'?'HeartMuLa':'MiniMax Music 3'):'')));
+   const modelName=({'qwen-image-2.1':'Qwen Image 2.1','sdxl-turbo':'SDXL Turbo','sdxl-turbo-ipadapter':'SDXL Turbo 參考圖','minimax-h3':'MiniMax H3','wan-2.1-t2v-1.3b':'Wan 2.1 T2V','wan-2.1-i2v-14b-nf4':'Wan 2.1 I2V','heartmula-3b':'HeartMuLa','minimax-music3':'MiniMax Music 3'})[item.generationModel]||(item.mode==='music'&&item.musicModel?(item.musicModel==='heartmula'?'HeartMuLa':'MiniMax Music 3'):'');
+   card.append(text('h3',modes[item.mode]||item.mode),text('span',(statuses[item.status]||item.status)+(modelName?' · '+modelName:'')+(item.generationModel==='minimax-h3'?' · '+(item.h3Profile==='turbo'?'Turbo 8步':'原始20步')+(item.h3Quality==='480p'?' · 480p':'')+(item.h3OutputResolution&&item.h3OutputResolution!=='source'?' → '+item.h3OutputResolution+'（放大）':''):'')));
    const duration=item.finished?Math.max(0,Math.round((item.finished-item.created)/1000)):['running','queued','submitting'].includes(item.status)?Math.max(0,Math.round((Date.now()-item.created)/1000)):null;
    card.append(text('small',new Date(item.created).toLocaleString()+' · '+(duration===null?'舊任務未記錄完成時間':(item.finished?'耗時 ':'已等待 ')+Math.floor(duration/60)+' 分 '+duration%60+' 秒')));
    card.append(text('p','對話：'+item.title));
@@ -1017,11 +1048,34 @@ musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music
  dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
 })();
 
+const imageModelRow=document.createElement('label');imageModelRow.className='appearance-description';imageModelRow.textContent='圖片模型 ';
+const imageModelSelect=document.createElement('select');imageModelSelect.id='imageModel';imageModelSelect.setAttribute('aria-label','圖片模型');imageModelSelect.innerHTML='<option value="sdxl-turbo">SDXL Turbo（快速）</option><option value="qwen-image-2.1" disabled>Qwen Image 2.1（原模型，25步）</option>';imageModelRow.append(imageModelSelect);creationTools.after(imageModelRow);
+function syncImageModelRow(){imageModelRow.hidden=!['text-image','image-edit'].includes(resolveCreationMode());const qwen=imageModelSelect.value==='qwen-image-2.1';imageMethodLabel.hidden=qwen;imageMethodSelect.disabled=qwen;if(qwen&&resolveCreationMode()==='image-edit'){editHelp.textContent='Qwen Image 2.1：依文字指令編輯參考圖片。目前每次一張圖片。';form.querySelector('[type=submit]').textContent='編輯圖片';}else if(!qwen)imageMethodSelect.onchange();}
+creationMode.addEventListener('change',syncImageModelRow);input.addEventListener('input',syncImageModelRow);syncImageModelRow();
+imageModelSelect.onchange=()=>{syncImageModelRow();if(restoredRecipe){restoredRecipe=null;recipeInfo.textContent='圖片模型已變更，使用目前設定生成';}};
+
+const videoModelRow=document.createElement('div');videoModelRow.className='appearance-description generation-model-row';
+const videoModelLabel=document.createElement('label');videoModelLabel.textContent='影片模型 ';const videoModelSelect=document.createElement('select');videoModelSelect.id='videoModel';videoModelSelect.setAttribute('aria-label','影片模型');videoModelSelect.innerHTML='<option value="wan">Wan（無聲短片）</option><option value="minimax-h3" disabled>MiniMax H3（原模型，含音訊）</option>';videoModelLabel.append(videoModelSelect);
+const h3ProfileLabel=document.createElement('label');h3ProfileLabel.textContent=' H3流程 ';const h3ProfileSelect=document.createElement('select');h3ProfileSelect.id='h3Profile';h3ProfileSelect.setAttribute('aria-label','H3生成流程');h3ProfileSelect.innerHTML='<option value="original">原始20步（未啟用LoRA）</option><option value="turbo" disabled>Turbo LoRA 8步</option>';h3ProfileLabel.append(h3ProfileSelect);const h3Hint=document.createElement('small');h3Hint.textContent='H3：24 FPS，含音訊；16:9約512×288。長度會對齊模型影格，例如設定1秒實際約1.63秒。';const h3QualityLabel=document.createElement('label');h3QualityLabel.textContent='影片畫質 ';const h3QualitySelect=document.createElement('select');h3QualitySelect.id='h3Quality';h3QualitySelect.setAttribute('aria-label','H3影片畫質');h3QualitySelect.innerHTML='<option value=standard>標準（約288p）</option><option value=480p disabled>480p（20步文生・16:9）</option>';h3QualityLabel.append(h3QualitySelect);const h3OutputLabel=document.createElement('label');h3OutputLabel.textContent='輸出解析度 ';const h3OutputSelect=document.createElement('select');h3OutputSelect.id='h3OutputResolution';h3OutputSelect.setAttribute('aria-label','H3輸出解析度');h3OutputSelect.innerHTML='<option value=source>原始尺寸</option><option value=720p>720p（CPU放大）</option><option value=1080p>1080p（CPU放大）</option>';h3OutputLabel.append(h3OutputSelect);videoModelRow.append(videoModelLabel,h3ProfileLabel,h3QualityLabel,h3OutputLabel,h3Hint);creationTools.after(videoModelRow);
+function syncVideoModelRow(){videoModelRow.hidden=!['text-video','video'].includes(resolveCreationMode());const h3=videoModelSelect.value==='minimax-h3';h3ProfileLabel.hidden=!h3;h3QualityLabel.hidden=!h3;h3OutputLabel.hidden=!h3;h3Hint.hidden=!h3;
+const highAllowed=h3&&resolveCreationMode()==='text-video'&&h3ProfileSelect.value==='original'&&window.nativeGeneration?.h3QualityOptions?.includes('480p');h3QualitySelect.querySelector('[value="480p"]').disabled=!highAllowed;
+if(!highAllowed&&h3QualitySelect.value==='480p'){h3QualitySelect.value='standard';videoStatus.textContent='480p只支援原始20步文生影片，已切回標準畫質。';}
+const canUpscale=highAllowed&&h3QualitySelect.value==='480p';h3OutputSelect.disabled=!canUpscale;if(!canUpscale)h3OutputSelect.value='source';
+h3Hint.textContent=h3OutputSelect.value!=='source'?'以864×480生成，再用CPU放大至'+(h3OutputSelect.value==='720p'?'1280×720':'1920×1080')+'，不增加GPU顯存；不是原生高解析，也不會補回缺失細節。保留原片，最長設定3秒。':h3QualitySelect.value==='480p'?'480p：864×480，原始20步、16:9文生影片，最長設定3秒；需要較多時間與記憶體。':'H3：24 FPS，含音訊；16:9約512×288。長度會對齊模型影格，例如設定1秒實際約1.63秒。';}
+
+const beforeModelRowsModeChange=creationMode.onchange;creationMode.onchange=()=>{beforeModelRowsModeChange();syncImageModelRow();syncVideoModelRow();};input.addEventListener('input',syncVideoModelRow);syncVideoModelRow();
+videoModelSelect.onchange=h3ProfileSelect.onchange=()=>{syncVideoModelRow();if(restoredRecipe){restoredRecipe=null;recipeInfo.textContent='影片模型或流程已變更，使用目前設定生成';}};
+
+h3OutputSelect.onchange=()=>{restoredRecipe=null;recipeInfo.textContent='輸出解析度已變更，使用目前設定生成';syncVideoModelRow();updateVideoSettingsSummary();};
+h3QualitySelect.onchange=()=>{if(h3QualitySelect.value==='480p'){savedVideoSettings['text-video']={...getVideoSettings('text-video'),ratio:'16:9 (Widescreen)'};videoStatus.textContent='480p使用16:9、原始20步，最長設定3秒。';}restoredRecipe=null;recipeInfo.textContent='畫質已變更，使用目前設定生成';syncVideoModelRow();updateVideoSettingsSummary();};
 // Explicit capability labels: never silently fall back to ComfyUI.
-(async()=>{try{const d=await api('/api/generation-engine');window.nativeGeneration=d;
- if(d.musicModels?.includes('heartmula')){musicModelSelect.value='heartmula';musicDuration.value=10;for(const option of musicModelSelect.options)if(option.value!=='heartmula'){option.disabled=true;option.textContent+='（尚未獨立化）';}syncMusicModel();}
- const note=document.createElement('p');note.className='appearance-description';note.id='generationEngineNote';note.textContent='獨立生成 · SDXL Turbo 圖片／HeartMuLa 音樂。音樂 10–60 秒，CPU 解碼可能需要數分鐘；影片尚未接入。';videoStatus.before(note);
- for(const option of creationMode.options){if(!['auto','chat',...d.modes].includes(option.value)){option.disabled=true;option.textContent+='（尚未獨立化）';}if(option.value==='image-edit')option.textContent='單張圖片轉換（SDXL Turbo）';if(option.value==='text-image')option.textContent='文字生成圖片（SDXL Turbo）';}
+(async()=>{try{const d=await api('/api/generation-engine');window.nativeGeneration=d;videoModelSelect.querySelector('[value="minimax-h3"]').disabled=!d.videoModels?.includes('minimax-h3');if(d.videoModels?.includes('minimax-h3'))videoModelSelect.value='minimax-h3';h3ProfileSelect.querySelector('[value=turbo]').disabled=!d.h3Profiles?.includes('turbo');syncVideoModelRow();imageModelSelect.querySelector('[value="qwen-image-2.1"]').disabled=!d.imageModels?.includes('qwen-image-2.1');if(d.imageModels?.includes('qwen-image-2.1'))imageModelSelect.value='qwen-image-2.1';syncImageModelRow();imageMethodSelect.querySelector('[value=reference]').disabled=!d.imageMethods?.includes('reference');
+ if(d.musicModels?.includes('heartmula')){musicModelSelect.value='heartmula';musicDuration.value=10;}for(const option of musicModelSelect.options){option.disabled=!d.musicModels?.includes(option.value);option.textContent=(option.value==='heartmula'?'HeartMuLa 3B':'MiniMax Music 3')+(option.disabled?'（尚未安裝完成）':'');}syncMusicModel();
+ const note=document.createElement('p');note.className='appearance-description';note.id='generationEngineNote';note.textContent='目前支援圖片與音樂生成。';note.hidden=true;videoStatus.before(note);
+ for(const option of creationMode.options){if(!['auto','chat',...d.modes].includes(option.value)){option.disabled=true;option.hidden=true;}if(option.value==='image-edit')option.textContent='圖生圖／參考圖生成';if(option.value==='text-image')option.textContent='文字生成圖片';if(option.value==='text-video')option.textContent='文字生成影片';if(option.value==='video')option.textContent='圖片生成影片';}
 }catch(e){videoStatus.textContent='獨立生成引擎未就緒：'+e.message;}})();
 
 (()=>{const button=document.createElement('button');button.type='button';button.textContent='本機模型';button.onclick=()=>runAction(async()=>{const d=await api('/api/local-models');const dialog=document.createElement('dialog');dialog.className='appearance-dialog';const title=document.createElement('h2');title.textContent='專案模型清單';dialog.append(title);for(const m of d.models){const card=document.createElement('p');card.textContent=m.label+' · '+m.kind+' · '+(m.bytes/1073741824).toFixed(2)+' GB · '+(m.ready?'已安裝':'缺少檔案');const detail=document.createElement('small');detail.textContent=m.file;card.append(document.createElement('br'),detail);dialog.append(card);}const note=document.createElement('p');note.textContent='尚待獨立化：'+d.pending.join('、')+'。目前不會自動下載其他大型模型。';const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>{dialog.close();dialog.remove();};dialog.append(note,close);document.body.append(dialog);dialog.showModal();});document.querySelector('.toolbar').append(button);})();
+
+// Infrequent information stays accessible without crowding the chat toolbar.
+(()=>{const toolbar=document.querySelector('.toolbar');const {menu,content}=createHeaderMenu('更多');menu.classList.add('secondary-tools-menu');for(const button of Array.from(toolbar.querySelectorAll(':scope > button'))){if(['資源監控','本機模型'].includes(button.textContent.trim()))content.append(button);}toolbar.append(menu);})();

@@ -29,3 +29,17 @@ venv/
 *.key
 Thumbs.db
 .DS_Store
+
+# Downloaded MiniMax files include machine-local pipeline identifiers.
+models/generation/minimax-music3/
+
+models/generation/ip-adapter/validated.json
+models/generation/wan-1.3b/validated.json
+
+models/generation/wan-i2v-14b/validated.json
+models/generation/qwen-image-2.1/validated.json
+models/generation/minimax-h3/validated-*.json
+
+# Machine-local weight conversion metadata and tokenizer binary
+models/generation/minimax-h3/text_encoders/*.gguf.json
+models/generation/wan-1.3b/tokenizer/spiece.model

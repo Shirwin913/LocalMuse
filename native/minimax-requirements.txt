@@ -1,0 +1,5 @@
+diffusers @ https://github.com/huggingface/diffusers/archive/dafe3733fcfdbf3c48915fe77be3aef65b5d6a2d.zip
+transformers==5.21.0
+huggingface-hub==1.31.0
+accelerate==1.12.0
+numpy==1.26.4

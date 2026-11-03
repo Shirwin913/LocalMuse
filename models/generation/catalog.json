@@ -28,11 +28,89 @@
       "status": "installed",
       "min_seconds": 10,
       "max_seconds": 60
+    },
+    {
+      "id": "minimax-music3",
+      "label": "MiniMax Music 3",
+      "kind": "music",
+      "checkpoint": "minimax-music3/validated.json",
+      "bytes": 28517620696,
+      "modes": [
+        "music"
+      ],
+      "status": "installed",
+      "min_seconds": 5,
+      "max_seconds": 300
+    },
+    {
+      "id": "sdxl-turbo-ipadapter",
+      "label": "SDXL Turbo 參考圖（IP-Adapter）",
+      "kind": "image",
+      "checkpoint": "ip-adapter/validated.json",
+      "modes": [
+        "image-edit"
+      ],
+      "status": "installed",
+      "bytes": 1962610460
+    },
+    {
+      "id": "wan-2.1-t2v-1.3b",
+      "label": "Wan 2.1 文字生短片",
+      "kind": "video",
+      "checkpoint": "wan-1.3b/validated.json",
+      "modes": [
+        "text-video"
+      ],
+      "status": "installed",
+      "min_seconds": 1,
+      "max_seconds": 3,
+      "bytes": 14458319759
+    },
+    {
+      "id": "wan-2.1-i2v-14b-nf4",
+      "label": "Wan 2.1 圖片生短片（低記憶體）",
+      "kind": "video",
+      "checkpoint": "wan-i2v-14b/validated.json",
+      "modes": [
+        "video"
+      ],
+      "status": "installed",
+      "min_seconds": 1,
+      "max_seconds": 1,
+      "bytes": 32791377504
+    },
+    {
+      "id": "qwen-image-2.1",
+      "label": "Qwen Image 2.1（原模型，獨立引擎）",
+      "kind": "image",
+      "checkpoint": "qwen-image-2.1/validated.json",
+      "bytes": 17283091112,
+      "modes": [
+        "text-image",
+        "image-edit"
+      ],
+      "status": "installed"
+    },
+    {
+      "id": "minimax-h3",
+      "label": "MiniMax H3（原影片模型，含音訊）",
+      "kind": "video",
+      "checkpoint": "minimax-h3/validated-original.json",
+      "bytes": 46756379184,
+      "modes": [
+        "text-video",
+        "video"
+      ],
+      "profiles": [
+        "original",
+        "turbo"
+      ],
+      "status": "installed",
+      "max_seconds": 3,
+      "image_max_seconds": 1
     }
   ],
   "pending": [
-    "Qwen Image 2.1",
-    "Wan video",
-    "MiniMax Music"
+    "Qwen 多圖編輯"
   ]
 }

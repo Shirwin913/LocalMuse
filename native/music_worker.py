@@ -1,4 +1,4 @@
-"""Standalone HeartMuLa NF4/BF16 + CPU codec worker, with no Comfy imports."""
+"""Standalone HeartMuLa NF4/BF16 + automatic GPU/CPU codec worker, with no Comfy imports."""
 import os,sys,json,time,gc
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -28,30 +28,31 @@ def load_cpu(cls,*args,**kwargs):
     kwargs['device_map']='cpu'
     return original_load(*args,**kwargs)
 HeartCodec.from_pretrained=load_cpu
-original_decode=HeartCodec.detokenize
-def decode_cpu(self,codes,*args,**kwargs):
-    progress('CPU 解碼音訊，這個階段可能需要數分鐘')
-    kwargs['device']='cpu'
-    return original_decode(self,codes.cpu(),*args,**kwargs)
-HeartCodec.detokenize=decode_cpu
+from audio_decode import decode_audio
 started=time.perf_counter()
 quant=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True,bnb_4bit_quant_type='nf4')
-pipe=HeartMuLaGenPipeline.from_pretrained(str(ROOT/'models/generation/heartmula'),device=torch.device('cuda'),dtype=torch.bfloat16,version='3B',bnb_config=quant)
-for layer in pipe.model.modules():
-    if callable(getattr(layer,'rope_init',None)):
-        with torch.device('cuda'):layer.rope_init()
-if any(buffer.is_meta for _,buffer in pipe.model.named_buffers()):raise RuntimeError('HeartMuLa 有未初始化的模型緩衝區')
-pipe.set_progress_callback(lambda current,total:progress('生成音樂 token',current,total))
-with torch.inference_mode():
-    inputs=pipe.preprocess({'tags':job['prompt'],'lyrics':job['lyrics'] or '[Instrumental]'},cfg_scale=1.0)
-    inputs={key:value.to('cuda') if isinstance(value,torch.Tensor) else value for key,value in inputs.items()}
-    outputs=pipe._forward(inputs,max_audio_length_ms=job['duration']*1000,temperature=1.0,topk=50,cfg_scale=1.0)
-wave=outputs['wav'].detach().cpu().float()
+def generate_codes():
+    pipe=HeartMuLaGenPipeline.from_pretrained(str(ROOT/'models/generation/heartmula'),device=torch.device('cuda'),dtype=torch.bfloat16,version='3B',bnb_config=quant)
+    for layer in pipe.model.modules():
+        if callable(getattr(layer,'rope_init',None)):
+            with torch.device('cuda'):layer.rope_init()
+    if any(buffer.is_meta for _,buffer in pipe.model.named_buffers()):raise RuntimeError('HeartMuLa 有未初始化的模型緩衝區')
+    pipe.set_progress_callback(lambda current,total:progress('生成音樂',current,total))
+    with torch.inference_mode():
+        inputs=pipe.preprocess({'tags':job['prompt'],'lyrics':job['lyrics'] or '[Instrumental]'},cfg_scale=1.0)
+        inputs={key:value.to('cuda') if isinstance(value,torch.Tensor) else value for key,value in inputs.items()}
+        outputs=pipe._forward(inputs,max_audio_length_ms=job['duration']*1000,temperature=1.0,topk=50,cfg_scale=1.0,return_codes=True)
+    return outputs["codes"],pipe.audio_codec
+codes,codec=generate_codes()
+progress("釋放生成模型，評估音訊解碼裝置")
+gc.collect();torch.cuda.empty_cache()
+wave,decode_info=decode_audio(codec,codes,progress,seed=job["seed"])
+wave=wave.detach().cpu().float()
 if wave.ndim==3:wave=wave[0]
 if wave.ndim!=2 or not torch.isfinite(wave).all() or wave.abs().max()<1e-6:raise RuntimeError('音訊為空白或無效')
 rate=48000;duration=wave.shape[-1]/rate
 if duration<1:raise RuntimeError('輸出音訊太短')
 path=ROOT/'generated/output'/job['output'];sf.write(path,wave.transpose(0,1).numpy(),rate,subtype='PCM_16')
 progress('完成',1,1)
-result={'seconds':round(time.perf_counter()-started,2),'duration':duration,'sample_rate':rate,'peak':float(wave.abs().max()),'rms':float(wave.square().mean().sqrt())}
+result={'seconds':round(time.perf_counter()-started,2),'duration':duration,'sample_rate':rate,'peak':float(wave.abs().max()),'rms':float(wave.square().mean().sqrt()),'decode':decode_info}
 job_path.with_suffix('.audio.json').write_text(json.dumps(result),encoding='utf-8');print(json.dumps(result),flush=True)

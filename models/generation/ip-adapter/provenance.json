@@ -1,0 +1,17 @@
+{
+  "source": "Existing local h94/IP-Adapter weights, originals retained",
+  "files": [
+    {
+      "file": "adapter.safetensors",
+      "bytes": 698391064,
+      "sha256": "ebf05d918348aec7abb02a5e9ecef77e0aaea6914a5c4ea13f50d45eb1681831"
+    },
+    {
+      "file": "image_encoder\\model.safetensors",
+      "bytes": 1264219396,
+      "sha256": "64a7ef761bfccbadbaa3da77366aac4185a6c58fa5de5f589b42a65bcc21f161"
+    }
+  ],
+  "config_source": "https://huggingface.co/h94/IP-Adapter/blob/main/models/image_encoder/config.json",
+  "status": "awaiting_real_inference"
+}

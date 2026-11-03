@@ -1,0 +1,11 @@
+{
+  "repo": "Wan-AI/Wan2.1-T2V-1.3B-Diffusers",
+  "revision": "0fad780a534b6463e45facd96134c9f345acfa5b",
+  "local_sources": [
+    "wan2.1_t2v_1.3B_bf16.safetensors",
+    "wan_2.1_vae.safetensors",
+    "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+  ],
+  "text_conversion": "scaled FP8 weights multiplied by individual scale_weight, stored as BF16; originals retained",
+  "status": "pending_real_validation"
+}

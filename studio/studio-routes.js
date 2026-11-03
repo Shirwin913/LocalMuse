@@ -15,6 +15,6 @@ module.exports=(app,db)=>{
   const from=' FROM video_jobs j JOIN conversations c ON c.id=j.conversation LEFT JOIN messages m ON m.id=j.message_id LEFT JOIN generation_recipes r ON r.job_id=j.id WHERE '+where.join(' AND ');
   const total=db.prepare('SELECT COUNT(*) AS n'+from).get(...args).n;
   const rows=db.prepare('SELECT j.id,j.conversation,j.status,j.error,j.mode,j.created,j.finished,j.expires_at,j.expired_at,j.message_id,c.title,m.filename,m.mime,length(m.attachment) AS bytes,r.settings'+from+' ORDER BY j.created DESC,j.id LIMIT 20 OFFSET ?').all(...args,page*20);
-  res.json({total,page,items:rows.map(({settings,...r})=>{let recipe=null;try{recipe=JSON.parse(settings);}catch{}return {...r,prompt:recipe?.prompt||'',musicModel:recipe?.musicModel,hasRecipe:Boolean(recipe)};})});
+  res.json({total,page,items:rows.map(({settings,...r})=>{let recipe=null;try{recipe=JSON.parse(settings);}catch{}return {...r,prompt:recipe?.prompt||'',musicModel:r.mode==='music'?recipe?.musicModel:undefined,generationModel:recipe?.generationModel,h3Profile:recipe?.h3Profile,h3Quality:recipe?.h3Quality,h3OutputResolution:recipe?.h3OutputResolution,hasRecipe:Boolean(recipe)};})});
  });
 };

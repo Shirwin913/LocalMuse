@@ -145,6 +145,7 @@ class HeartMuLaGenPipeline(Pipeline):
         temperature: float,
         topk: int,
         cfg_scale: float,
+        return_codes: bool = False,
     ):
         prompt_tokens = model_inputs["tokens"]
         prompt_tokens_mask = model_inputs["tokens_mask"]
@@ -214,6 +215,8 @@ class HeartMuLaGenPipeline(Pipeline):
                 break
             frames.append(curr_token[0:1,])
         frames = torch.stack(frames).permute(1, 2, 0).squeeze(0)
+        if return_codes:
+            return {"codes": frames.detach().cpu()}
         wav = self.audio_codec.detokenize(frames)
         return {"wav": wav}
 

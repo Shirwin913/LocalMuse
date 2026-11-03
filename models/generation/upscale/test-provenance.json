@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://raw.githubusercontent.com/XPixelGroup/BasicSR/v1.4.2/basicsr/archs/rrdbnet_arch.py",
+    "path": "native\\vendor\\realesrgan_test\\rrdbnet_original.py",
+    "size": 4621,
+    "sha256": "6aa8eb3f77e918b90eeff4ebfaf8745abe0c40eb8fcc03abbc1928693d70ab58"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/XPixelGroup/BasicSR/v1.4.2/basicsr/archs/arch_util.py",
+    "path": "native\\vendor\\realesrgan_test\\arch_util_original.py",
+    "size": 11432,
+    "sha256": "45b322b874057c4bff382cc8f1b64554857b9aa4e0c47e73fe67e4afc0b28ac1"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/XPixelGroup/BasicSR/v1.4.2/LICENSE.txt",
+    "path": "native\\vendor\\realesrgan_test\\LICENSE-BasicSR.txt",
+    "size": 11350,
+    "sha256": "5447872f21ddc29dc0dc060d5c885513c01c904e9da9931bba69898a6fb4d415"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/v0.3.0/LICENSE",
+    "path": "native\\vendor\\realesrgan_test\\LICENSE-RealESRGAN.txt",
+    "size": 1519,
+    "sha256": "4a699ec4863d96a91fc265948a0c90033f7e8735d515524dcf3444736406e0c2"
+  },
+  {
+    "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+    "path": "models\\generation\\upscale\\RealESRGAN_x2plus.pth",
+    "size": 67061725,
+    "sha256": "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb"
+  }
+]
