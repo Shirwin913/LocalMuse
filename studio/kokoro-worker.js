@@ -23,9 +23,9 @@ module.exports=function(python,script,model){
  return (audio,partial,signal)=>new Promise((resolve,reject)=>{
   if(signal?.aborted)return reject(Error('已停止'));
   if((partial&&(active||queue.length))||queue.length>=8)return reject(Error('語音服務忙碌，請稍後再試'));
-  const job={audio,partial,id:++sequence,timer:null};
-  const abort=()=>{const index=queue.indexOf(job);if(index>=0){queue.splice(index,1);job.finish(Error('已停止'));}};
-  job.finish=(err,result)=>{clearTimeout(job.timer);signal?.removeEventListener('abort',abort);if(active===job)active=null;err?reject(err):resolve(result);if(!queue.length){idle=setTimeout(()=>{if(active)return;const p=process;process=null;p?.kill();},300000);idle.unref();}};
+  const job={audio,partial,id:++sequence,timer:null,settled:false};
+  const abort=()=>{if(active===job){const p=process;process=null;p?.kill();job.finish(Error('已停止'));pump();return;}const index=queue.indexOf(job);if(index>=0){queue.splice(index,1);job.finish(Error('已停止'));}};
+  job.finish=(err,result)=>{if(job.settled)return;job.settled=true;clearTimeout(job.timer);signal?.removeEventListener('abort',abort);if(active===job)active=null;err?reject(err):resolve(result);if(!queue.length){idle=setTimeout(()=>{if(active)return;const p=process;process=null;p?.kill();},300000);idle.unref();}};
   signal?.addEventListener('abort',abort,{once:true});queue.push(job);pump();
  });
 };

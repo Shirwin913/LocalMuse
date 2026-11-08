@@ -3,7 +3,7 @@
 ## 已支援
 - llama.cpp：專案內的文字／視覺 GGUF 模型。
 - SDXL Turbo：文生圖、單張 img2img 轉換，4 步、CFG 0、最長邊 768 像素；不是 Qwen 精準指令式編輯。
-- HeartMuLa 3B：10–60 秒音樂，NF4／BF16 模型在 GPU，HeartCodec 自動選擇 GPU／CPU，CFG 1；輸出 48kHz PCM16 WAV。
+- HeartMuLa 3B：10–180 秒音樂，NF4／BF16 模型在 GPU，HeartCodec 自動選擇 GPU／CPU，CFG 1；輸出 48kHz PCM16 WAV。
 - MiniMax Music 3：5–300 秒上限，獨立 Diffusers 環境、CPU／GPU 權重搬移，輸出 44.1kHz 雙聲道 PCM16 WAV。模型可能提前結束。
 
 - IP-Adapter SDXL：單張參考圖生成，參考外觀與風格；詳見 native/REFERENCE.md。

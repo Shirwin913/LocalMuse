@@ -487,7 +487,7 @@ async function submitVideo(mode=resolveCreationMode()){
   if(mode!=='video'&&selectedFile)throw Error('文字生成不使用附件，請先移除附件');
   const body=new FormData();body.append('conversationId',activeId);body.append('text',input.value.trim());const settings=getVideoSettings(mode);body.append('seconds',settings.seconds);body.append('ratio',settings.ratio);body.append('megapixels',settings.megapixels);body.append('mode',mode);if(['text-video','video'].includes(mode)){body.append('videoModel',videoModelSelect.value);body.append('h3Profile',h3ProfileSelect.value);body.append('h3Quality',h3QualitySelect.value);body.append('h3OutputResolution',h3OutputSelect.value);}if(['text-image','image-edit'].includes(mode))body.append('imageModel',imageModelSelect.value);if(mode==='image-edit')body.append('imageMethod',imageMethodSelect.value);if(mode==='image-edit'){if(!editFiles.length)throw Error('請先選擇參考圖片');for(const f of editFiles)body.append('file',f);}else if(selectedFile)body.append('file',selectedFile);
   if(recipeSeed.value!=='')body.append('seed',recipeSeed.value);if(restoredRecipe?.mode===mode)body.append('recipeId',restoredRecipe.jobId);
-  if(mode==='music'){body.append('musicModel',musicModelSelect.value);if(musicModelSelect.value==='minimax')body.append('musicProfile',musicFlowSelect.value);const duration=Number(musicDuration.value);if(!Number.isInteger(duration)||duration<5||duration>300)throw Error('音樂時間需為 5–300 秒');if(musicModelSelect.value==='heartmula'&&(duration<10||duration>60))throw Error('HeartMuLa 音樂時間需為 10–60 秒');body.append('lyrics',musicLyrics.value);body.append('duration',duration);}
+  if(mode==='music'){body.append('musicModel',musicModelSelect.value);if(musicModelSelect.value==='minimax')body.append('musicProfile',musicFlowSelect.value);const duration=Number(musicDuration.value);if(!Number.isInteger(duration)||duration<5||duration>300)throw Error('音樂時間需為 5–300 秒');if(musicModelSelect.value==='heartmula'&&(duration<10||duration>180))throw Error('HeartMuLa 音樂時間需為 10–180 秒');body.append('lyrics',musicLyrics.value);body.append('duration',duration);body.append('musicEnding',musicEndingSelect.value);}
   videoStatus.textContent='正在送到 獨立生成引擎…';
   try{await api('/api/video-jobs',{method:'POST',body});await openConversation(activeId);await checkVideoJobs();}catch(e){videoStatus.textContent='送出失敗：'+e.message;throw e;}
  });
@@ -771,14 +771,15 @@ function renderGenerationProgress(job){if(!job){generationProgress.hidden=true;r
 
 // MiniMax Music 3: caption in the composer; lyrics and duration kept separate.
 const musicPanel=document.createElement('section');musicPanel.className='music-panel';musicPanel.hidden=true;
-musicPanel.innerHTML='<label for="musicLyrics">歌詞 <span>選填，可使用 [Verse]、[Chorus] 分段</span></label><textarea id="musicLyrics" rows="4" maxlength="12000" placeholder="在此輸入歌詞；主輸入框描述曲風、情緒與樂器。留白可嘗試純音樂，結果依模型而定。"></textarea><label class="music-duration" for="musicDuration">最長時間 <input id="musicDuration" type="number" min="5" max="300" step="1" value="60"> 秒</label><small>模型可能提前結束。先以短片段測試；AI 整理提示詞只整理音樂風格，不更動歌詞。</small>';
-creationTools.after(musicPanel);const musicLyrics=document.getElementById('musicLyrics'),musicDuration=document.getElementById('musicDuration');
+musicPanel.innerHTML='<label for="musicLyrics">歌詞 <span>選填，可使用 [Verse]、[Chorus] 分段</span></label><textarea id="musicLyrics" rows="4" maxlength="12000" placeholder="在此輸入歌詞；主輸入框描述曲風、情緒與樂器。留白可嘗試純音樂，結果依模型而定。"></textarea><label class="music-duration" for="musicDuration">最長時間 <input id="musicDuration" type="number" min="5" max="300" step="1" value="60"> 秒</label><label for="musicEnding">收尾處理 <select id="musicEnding"><option value="none">保留原始結尾</option><option value="fade8">末段淡出（最長8秒）</option><option value="fade12">末段淡出（最長12秒）</option></select></label><small>淡出只處理音量，不重寫旋律；保留原音檔，短片最多處理末四分之一。模型可能提前結束。先以短片段測試；AI 整理提示詞只整理音樂風格，不更動歌詞。</small>';
+creationTools.after(musicPanel);const musicLyrics=document.getElementById('musicLyrics'),musicDuration=document.getElementById('musicDuration'),musicEndingSelect=document.getElementById('musicEnding');
 const beforeMusicChange=creationMode.onchange;creationMode.onchange=()=>{beforeMusicChange();const music=creationMode.value==='music';musicPanel.hidden=!music;if(music){input.placeholder='描述音樂風格，例如：溫暖的中文抒情歌、柔和女聲、鋼琴與弦樂';form.querySelector('[type=submit]').textContent='生成音樂';}};
 function attachMusicPlayer(container,id){attachRecipeButton(container,id);container.classList.add('music-message');const audio=document.createElement('audio');audio.src='/api/audio/'+id;audio.dataset.messageId=id;audio.controls=true;audio.preload='metadata';audio.style.cssText='display:block;width:100%;margin-top:12px';container.append(audio);}
 
 
 // Generation recipes are restored into an editable draft, never submitted automatically.
 let restoredRecipe=null;
+musicEndingSelect.onchange=()=>{restoredRecipe=null;recipeInfo.textContent='收尾處理已變更，使用目前設定生成';};
 const recipeBar=document.createElement('div');recipeBar.className='recipe-bar';
 recipeBar.innerHTML='<label>種子 <input type="number" min="0" step="1" placeholder="留白：每次隨機" aria-label="生成種子"></label><span></span><button type="button">清除原始設定</button>';
 creationTools.after(recipeBar);
@@ -797,7 +798,7 @@ function attachRecipeButton(container,id){
   creationMode.value=data.mode;editFiles=data.mode==='image-edit'?files:[];selectedFile=data.mode==='video'?files[0]:null;fileInput.value='';
   if(['text-video','video'].includes(data.mode)){videoModelSelect.value=data.videoModel||'wan';h3ProfileSelect.value=data.h3Profile||'original';h3QualitySelect.value=data.h3Quality||'standard';h3OutputSelect.value=data.h3OutputResolution||'source';}if(['text-image','image-edit'].includes(data.mode))imageModelSelect.value=data.imageModel||'sdxl-turbo';if(data.mode==='image-edit')imageMethodSelect.value=data.imageMethod||'transform';
   savedVideoSettings[data.mode]={ratio:data.ratio,megapixels:data.megapixels,seconds:data.seconds};
-  musicModelSelect.value=data.musicModel||'minimax';musicFlowSelect.value=data.musicProfile||'reference';syncMusicModel();musicLyrics.value=data.lyrics||'';musicDuration.value=data.duration||60;input.value=data.prompt;
+  musicModelSelect.value=data.musicModel||'minimax';musicFlowSelect.value=data.musicProfile||'reference';syncMusicModel();musicLyrics.value=data.lyrics||'';musicDuration.value=data.duration||60;musicEndingSelect.value=data.musicEnding||'none';input.value=data.prompt;
   restoredRecipe={jobId:data.jobId,mode:data.mode};recipeSeed.value=data.seed;recipeInfo.textContent='已帶入原始流程與種子；相同設定仍可能有細微差異';
   renderEditFiles();renderFilePreview();creationMode.onchange();input.focus();videoStatus.textContent='設定與參考圖已恢復；確認後按生成。';
  });
@@ -935,7 +936,7 @@ const musicModelSelect=document.createElement('select');musicModelSelect.id='mus
 const musicFlowDetails=document.createElement('details');musicFlowDetails.innerHTML='<summary>進階：比較音樂生成流程</summary><label>生成流程 <select id="musicFlowProfile"><option value="global-euler">整段採樣（新流程）</option><option value="reference">分段採樣（舊流程）</option></select></label><small>可用相同提示詞與種子比較效果，音樂自然度仍依結果判斷。</small>';musicPanel.append(musicFlowDetails);const musicFlowSelect=document.getElementById('musicFlowProfile');musicFlowSelect.onchange=()=>{if(restoredRecipe?.mode==='music'){restoredRecipe=null;recipeInfo.textContent='已切換流程，沿用種子供比較';}};
 const musicModelNote=document.createElement('small');musicPanel.prepend(musicModelLabel,musicModelSelect,musicModelNote);
 try{musicModelSelect.value='heartmula';}catch{}
-function syncMusicModel(){const heart=musicModelSelect.value==='heartmula';musicFlowDetails.hidden=heart;musicDuration.min=heart?'10':'5';musicDuration.max=heart?'60':'300';musicDuration.value=Math.max(Number(musicDuration.min),Math.min(Number(musicDuration.max),Number(musicDuration.value)||60));musicModelNote.textContent=heart?'可生成 10–60 秒音樂，處理可能需要數分鐘。':'MiniMax Music 3：5–300 秒；主輸入框描述音樂風格。';}
+function syncMusicModel(){const heart=musicModelSelect.value==='heartmula';musicFlowDetails.hidden=heart;musicDuration.min=heart?'10':'5';musicDuration.max=heart?'180':'300';musicDuration.value=Math.max(Number(musicDuration.min),Math.min(Number(musicDuration.max),Number(musicDuration.value)||60));musicModelNote.textContent=heart?'可設定10–180秒；長片需要較久，模型可能提前結束，結尾不保證自然收束。':'MiniMax Music 3：5–300 秒；主輸入框描述音樂風格。';}
 musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music'){restoredRecipe=null;recipeSeed.value='';recipeInfo.textContent='已切換音樂模型，使用該模型目前的工作流程。';}if(musicModelSelect.value==='heartmula'&&Number(recipeSeed.value)>2147483647)recipeSeed.value='';try{localStorage.setItem('music-model-v1',musicModelSelect.value);}catch{}};syncMusicModel();
 
 // Always-visible progress is outside the collapsible settings drawer.

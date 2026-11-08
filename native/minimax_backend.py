@@ -1,4 +1,5 @@
 """Local MiniMax model installation checks, without importing inference packages."""
+from audio_ending import validate_ending
 import json, math
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,4 +49,4 @@ def parse_workflow(flow):
     if sampler.get('sampler_name', 'euler') != 'euler' or sampler.get('scheduler', 'simple') != 'simple' or sampler.get('denoise', 1) != 1:
         raise ValueError('獨立 MiniMax 目前支援 Euler／simple／完整去噪，不能直接套用其他採樣流程')
     return {'mode': 'music', 'musicModel': 'minimax', 'model': 'minimax-music3',
-            'prompt': prompt, 'lyrics': lyrics, 'duration': duration, 'seed': seed, 'sampling_profile':profile, **settings}
+            'prompt': prompt, 'lyrics': lyrics, 'duration': duration, 'seed': seed, 'sampling_profile':profile,'ending':validate_ending(inputs.get('project_ending','none')), **settings}

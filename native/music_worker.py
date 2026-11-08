@@ -29,6 +29,7 @@ def load_cpu(cls,*args,**kwargs):
     return original_load(*args,**kwargs)
 HeartCodec.from_pretrained=load_cpu
 from audio_decode import decode_audio
+from audio_ending import write_audio
 started=time.perf_counter()
 quant=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True,bnb_4bit_quant_type='nf4')
 def generate_codes():
@@ -52,7 +53,7 @@ if wave.ndim==3:wave=wave[0]
 if wave.ndim!=2 or not torch.isfinite(wave).all() or wave.abs().max()<1e-6:raise RuntimeError('音訊為空白或無效')
 rate=48000;duration=wave.shape[-1]/rate
 if duration<1:raise RuntimeError('輸出音訊太短')
-path=ROOT/'generated/output'/job['output'];sf.write(path,wave.transpose(0,1).numpy(),rate,subtype='PCM_16')
+path=ROOT/'generated/output'/job['output'];ending_info=write_audio(wave.transpose(0,1).numpy(),rate,path,job.get('ending','none'))
 progress('完成',1,1)
-result={'seconds':round(time.perf_counter()-started,2),'duration':duration,'sample_rate':rate,'peak':float(wave.abs().max()),'rms':float(wave.square().mean().sqrt()),'decode':decode_info}
+result={'seconds':round(time.perf_counter()-started,2),'duration':duration,'sample_rate':rate,'peak':float(wave.abs().max()),'rms':float(wave.square().mean().sqrt()),'decode':decode_info,'ending':ending_info}
 job_path.with_suffix('.audio.json').write_text(json.dumps(result),encoding='utf-8');print(json.dumps(result),flush=True)

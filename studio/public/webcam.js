@@ -24,6 +24,7 @@
   const video = $('webcamVideo');
   let stream = null;
   let opening = false;
+  let mediaController = null;
   let busy = false;
   let generation = 0;
   let shotUrl = null;
@@ -45,6 +46,7 @@
   }
   function stopCamera() {
     generation += 1;
+    mediaController?.abort();mediaController=null;
     if (stream) for (const track of stream.getTracks()) track.stop();
     stream = null;
     video.srcObject = null;
@@ -84,9 +86,10 @@
     $('webcamToggle').disabled = true;
     status('正在等待攝影機授權…');
     try {
-      const next = await navigator.mediaDevices.getUserMedia({audio: false, video: {
+      mediaController=new AbortController();
+      const next = await window.localMedia.acquire({audio: false, video: {
         width: {ideal: 1280}, height: {ideal: 720}, ...(deviceId ? {deviceId: {exact: deviceId}} : {})
-      }});
+      }},{signal:mediaController.signal});
       if (ticket !== generation) { next.getTracks().forEach(track => track.stop()); return; }
       stream = next;
       for (const track of stream.getTracks()) track.onended = () => {

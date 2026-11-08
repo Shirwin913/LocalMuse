@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import urlparse,parse_qs
 from email.parser import BytesParser
 from email.policy import default
+from audio_ending import validate_ending
 from video_backend import ready as video_ready, image_ready as image_video_ready, parse_workflow as parse_video
 from minimax_backend import ready as minimax_ready, parse_workflow as parse_minimax
 from qwen_backend import ready as qwen_ready, parse_workflow as parse_qwen
@@ -36,7 +37,7 @@ def run(job):
                 child=subprocess.Popen([str(python),str(ROOT/worker),str(DATA/'jobs'/(job['id']+'.json'))],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
                 workers[job['id']]=child
                 try:
-                    child.wait(timeout=7200 if minimax or job.get('model') in ('qwen-image-2.1','minimax-h3') else 1800 if job['mode'] in ('music','text-video','video') else 600)
+                    child.wait(timeout=7200 if minimax or job.get('model') in ('qwen-image-2.1','minimax-h3') or (job.get('model')=='heartmula-3b' and job.get('duration',10)>60) else 1800 if job['mode'] in ('music','text-video','video') else 600)
                 except subprocess.TimeoutExpired:
                     child.kill();child.wait();raise RuntimeError('生成逾時，請查看任務記錄')
                 finally:workers.pop(job['id'],None)
@@ -78,12 +79,12 @@ def create(flow):
         return enqueue(job)
     if 'HeartMuLaVerified' in kinds:
         inputs=next(node['inputs'] for node in flow.values() if node.get('class_type')=='HeartMuLaVerified')
-        prompt=inputs.get('tags','');lyrics=inputs.get('lyrics','');duration=inputs.get('seconds',10);seed=inputs.get('seed',42)
+        prompt=inputs.get('tags','');lyrics=inputs.get('lyrics','');duration=inputs.get('seconds',10);seed=inputs.get('seed',42);ending=validate_ending(inputs.get('ending','none'))
         if not isinstance(prompt,str) or not 1<=len(prompt)<=12000 or not isinstance(lyrics,str) or len(lyrics)>12000:raise ValueError('音樂風格或歌詞長度不正確')
-        if not isinstance(duration,int) or not 10<=duration<=60:raise ValueError('HeartMuLa 長度需為 10–60 秒')
-        if not isinstance(seed,int) or not 0<=seed<=2147483647:raise ValueError('HeartMuLa 種子不正確')
+        if type(duration) is not int or not 10<=duration<=180:raise ValueError('HeartMuLa 長度需為 10–180 秒')
+        if type(seed) is not int or not 0<=seed<=2147483647:raise ValueError('HeartMuLa 種子不正確')
         ident=str(uuid.uuid4())
-        return enqueue({'id':ident,'status':'queued','mode':'music','prompt':prompt,'lyrics':lyrics,'duration':duration,'seed':seed,'output':ident+'.wav','created':time.time(),'model':'heartmula-3b'})
+        return enqueue({'id':ident,'status':'queued','mode':'music','prompt':prompt,'lyrics':lyrics,'duration':duration,'seed':seed,'output':ident+'.wav','created':time.time(),'model':'heartmula-3b','ending':ending})
     if '459:452' in flow and '459:474' not in flow:
         image_method='transform';mode='text-image';prompt=flow['459:452']['inputs']['prompt'];ratio=flow['13']['inputs']['aspect_ratio'];mp=float(flow['13']['inputs']['megapixels']);image=None
     elif '459:474' in flow:
@@ -105,7 +106,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
     def do_GET(self):
         url=urlparse(self.path);route=url.path
-        if route=='/capabilities':return self.reply(200,{'engine':'project-native','label':'專案獨立生成引擎','models':catalog()['models'],'modes':['text-image','image-edit','music']+(['text-video'] if video_ready() else [])+(['video'] if image_video_ready() else []),'videoModels':['wan']+(['minimax-h3'] if h3_ready() else []),'h3OutputResolutions':['source','720p','1080p'],'h3QualityOptions':['standard']+(['480p'] if h3_high_quality_ready() else []),'h3Profiles':([p for p in ('original','turbo') if h3_ready(p)]),'h3Limits':{'maxSeconds':3,'imageMaxSeconds':1,'fps':24,'maxPixels':147456},'videoLimits':{'maxSeconds':3,'imageMaxSeconds':1,'maxPixels':399360,'fps':16},'imageModels':['sdxl-turbo']+(['qwen-image-2.1'] if qwen_ready() else []),'imageMethods':['transform']+(['reference'] if reference_ready() else []),'musicModels':['heartmula']+(['minimax'] if minimax_ready() else []),'limitations':'圖片模型可選SDXL Turbo或已驗證的Qwen Image 2.1；編輯目前限單張參考圖。影片與音樂長度依各模型限制，首次載入可能較慢。','offline':True})
+        if route=='/capabilities':return self.reply(200,{'engine':'project-native','label':'專案獨立生成引擎','models':catalog()['models'],'modes':['text-image','image-edit','music']+(['text-video'] if video_ready() else [])+(['video'] if image_video_ready() else []),'videoModels':['wan']+(['minimax-h3'] if h3_ready() else []),'h3OutputResolutions':['source','720p','1080p'],'h3QualityOptions':['standard']+(['480p'] if h3_high_quality_ready() else []),'h3Profiles':([p for p in ('original','turbo') if h3_ready(p)]),'h3Limits':{'maxSeconds':3,'imageMaxSeconds':1,'fps':24,'maxPixels':147456},'videoLimits':{'maxSeconds':3,'imageMaxSeconds':1,'maxPixels':399360,'fps':16},'imageModels':['sdxl-turbo']+(['qwen-image-2.1'] if qwen_ready() else []),'imageMethods':['transform']+(['reference'] if reference_ready() else []),'musicLimits':{'heartmula':{'minSeconds':10,'maxSeconds':180},'minimax':{'minSeconds':5,'maxSeconds':300}},'musicModels':['heartmula']+(['minimax'] if minimax_ready() else []),'limitations':'圖片模型可選SDXL Turbo或已驗證的Qwen Image 2.1；編輯目前限單張參考圖。影片與音樂長度依各模型限制，首次載入可能較慢。','offline':True})
         if route=='/progress':
             state={}
             for ident,j in jobs.items():

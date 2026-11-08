@@ -124,7 +124,7 @@ module.exports=(app,upload,history)=>{
    const lyrics=req.body.lyrics??'',duration=Number(req.body.duration??60);
    if(mode==='music'&&(typeof lyrics!=='string'||lyrics.length>12000||!Number.isInteger(duration)||duration<5||duration>300))return res.status(400).json({error:'歌詞限 12000 字元，音樂最長時間需為 5–300 秒整數'});
    if(mode==='music'&&musicModel==='minimax'&&duration>300)return res.status(400).json({error:'MiniMax 音樂時間需為 5–300 秒'});
-   if(mode==='music'&&musicModel==='heartmula'&&(duration<10||duration>60))return res.status(400).json({error:'HeartMuLa 音樂時間需為 10–60 秒'});
+   if(mode==='music'&&musicModel==='heartmula'&&(duration<10||duration>180))return res.status(400).json({error:'HeartMuLa 音樂時間需為 10–180 秒'});
    if(mode!=='music'&&(!Number.isInteger(seconds)||seconds<1||seconds>15))return res.status(400).json({error:'影片秒數需為 1–15'});
    const ratios=['1:1 (Square)','2:3 (Portrait Photo)','3:2 (Photo)','3:4 (Portrait Standard)','4:3 (Standard)','9:16 (Portrait Widescreen)','16:9 (Widescreen)','21:9 (Ultrawide)'];
    const ratio=req.body.ratio||(mode==='text-image'?'1:1 (Square)':mode==='text-video'?'16:9 (Widescreen)':'3:2 (Photo)'),megapixels=Number(req.body.megapixels??(mode==='text-image'?1:.5));
@@ -141,6 +141,8 @@ module.exports=(app,upload,history)=>{
     if(mode==='image-edit'&&(JSON.parse(saved.settings).imageMethod||'transform')!==imageMethod)throw Error('圖片生成方式已變更，請清除原始設定後再試');
     recipe=JSON.parse(saved.workflow);savedSettings=JSON.parse(saved.settings);
    }
+   const musicEnding=req.body.musicEnding??savedSettings?.musicEnding??'none';
+   if(mode==='music'&&!['none','fade8','fade12'].includes(musicEnding))throw Error('不支援的音樂收尾方式');
    const videoModel=req.body.videoModel||savedSettings?.videoModel||'wan',h3Profile=req.body.h3Profile||savedSettings?.h3Profile||'original',h3Quality=req.body.h3Quality||savedSettings?.h3Quality||'standard',h3OutputResolution=req.body.h3OutputResolution||savedSettings?.h3OutputResolution||'source';
    if(['text-video','video'].includes(mode)){
     if(!['source','720p','1080p'].includes(h3OutputResolution))throw Error('不支援的輸出解析度');
@@ -182,10 +184,10 @@ module.exports=(app,upload,history)=>{
     workflow['114'].inputs.image=(image.subfolder?image.subfolder+'/':'')+image.name;
    }
    if(mode==='music'&&musicModel==='heartmula'){
-    workflow['1'].inputs.tags=prompt;workflow['1'].inputs.lyrics=lyrics;workflow['1'].inputs.seconds=duration;workflow['1'].inputs.seed=seed;workflow['2'].inputs.filename_prefix='audio/heartmula_'+id;
+    workflow['1'].inputs.ending=musicEnding;workflow['1'].inputs.tags=prompt;workflow['1'].inputs.lyrics=lyrics;workflow['1'].inputs.seconds=duration;workflow['1'].inputs.seed=seed;workflow['2'].inputs.filename_prefix='audio/heartmula_'+id;
    }else if(mode==='music'){
     if(process.env.GENERATION_BACKEND==='native')workflow['37:13'].inputs.project_profile=recipe?(recipe['37:13'].inputs.project_profile||'reference'):musicProfile;
-    workflow['37:13'].inputs.caption=prompt;workflow['37:13'].inputs.lyrics=lyrics;workflow['37:13'].inputs.max_duration=duration;workflow['37:38'].inputs.seed=seed;workflow['35'].inputs.filename_prefix='audio/chat_'+id;
+    workflow['37:13'].inputs.project_ending=musicEnding;workflow['37:13'].inputs.caption=prompt;workflow['37:13'].inputs.lyrics=lyrics;workflow['37:13'].inputs.max_duration=duration;workflow['37:38'].inputs.seed=seed;workflow['35'].inputs.filename_prefix='audio/chat_'+id;
    }else if(mode==='image-edit'){
     const encoder=workflow['459:474'].inputs;
     for(const key of Object.keys(encoder))if(key.startsWith('images.image_'))delete encoder[key];
@@ -235,7 +237,7 @@ module.exports=(app,upload,history)=>{
    const sourceMessage=db.prepare('INSERT INTO messages(conversation,role,content,context,filename,mime,attachment) VALUES(?,?,?,?,?,?,?)').run(locked,'user',content,JSON.stringify({role:'user',content}),req.file?.originalname||null,req.file?.mimetype||null,req.file?.buffer||null);
    const references=req.file?[{id:Number(sourceMessage.lastInsertRowid),name:req.file.originalname,type:req.file.mimetype}]:[];
    if(mode==='image-edit')for(let i=1;i<req.files.length;i++){const f=req.files[i],text='圖片編輯參考圖 '+(i+1);const extra=db.prepare('INSERT INTO messages(conversation,role,content,context,filename,mime,attachment) VALUES(?,?,?,?,?,?,?)').run(locked,'user',text,JSON.stringify({role:'user',content:text}),f.originalname,f.mimetype,f.buffer);references.push({id:Number(extra.lastInsertRowid),name:f.originalname,type:f.mimetype});}
-   db.prepare('INSERT INTO generation_recipes VALUES(?,?,?,?)').run(id,JSON.stringify({mode,videoModel,h3Profile,h3Quality,h3OutputResolution,imageModel,modelPrompt,musicModel,musicProfile:mode==='music'&&musicModel==='minimax'?workflow['37:13'].inputs.project_profile:null,imageMethod,prompt,lyrics,duration,seconds,ratio,megapixels,seed,backend:process.env.GENERATION_BACKEND||'legacy',generationModel:process.env.GENERATION_BACKEND==='native'?(videoModel==='minimax-h3'&&['text-video','video'].includes(mode)?'minimax-h3':imageModel==='qwen-image-2.1'&&['text-image','image-edit'].includes(mode)?'qwen-image-2.1':mode==='music'?(musicModel==='minimax'?'minimax-music3':'heartmula-3b'):(mode==='video'?'wan-2.1-i2v-14b-nf4':mode==='text-video'?'wan-2.1-t2v-1.3b':mode==='image-edit'&&imageMethod==='reference'?'sdxl-turbo-ipadapter':'sdxl-turbo')):null}),JSON.stringify(workflow),JSON.stringify(references));
+   db.prepare('INSERT INTO generation_recipes VALUES(?,?,?,?)').run(id,JSON.stringify({mode,videoModel,h3Profile,h3Quality,h3OutputResolution,imageModel,modelPrompt,musicModel,musicEnding:mode==='music'?musicEnding:undefined,musicProfile:mode==='music'&&musicModel==='minimax'?workflow['37:13'].inputs.project_profile:null,imageMethod,prompt,lyrics,duration,seconds,ratio,megapixels,seed,backend:process.env.GENERATION_BACKEND||'legacy',generationModel:process.env.GENERATION_BACKEND==='native'?(videoModel==='minimax-h3'&&['text-video','video'].includes(mode)?'minimax-h3':imageModel==='qwen-image-2.1'&&['text-image','image-edit'].includes(mode)?'qwen-image-2.1':mode==='music'?(musicModel==='minimax'?'minimax-music3':'heartmula-3b'):(mode==='video'?'wan-2.1-i2v-14b-nf4':mode==='text-video'?'wan-2.1-t2v-1.3b':mode==='image-edit'&&imageMethod==='reference'?'sdxl-turbo-ipadapter':'sdxl-turbo')):null}),JSON.stringify(workflow),JSON.stringify(references));
    db.prepare('UPDATE video_jobs SET source_message_id=? WHERE id=?').run(Number(sourceMessage.lastInsertRowid),id);
    db.prepare("UPDATE conversations SET updated=?,title=CASE WHEN title='新對話' THEN ? ELSE title END WHERE id=?").run(Date.now(),prompt.slice(0,40),locked);
    res.status(202).json({id});

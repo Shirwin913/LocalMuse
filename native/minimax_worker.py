@@ -92,11 +92,12 @@ rate = int(pipe.sampling_rate)
 duration = wave.shape[-1] / rate
 if duration < 1:
     raise RuntimeError('MiniMax 輸出音訊太短')
-sf.write(ROOT/'generated/output'/job['output'], wave.T.numpy(), rate, subtype='PCM_16')
+from audio_ending import write_audio
+ending_info=write_audio(wave.T.numpy(),rate,ROOT/'generated/output'/job['output'],job.get('ending','none'))
 result = {'model': 'minimax-music3', 'seconds': round(time.perf_counter()-started, 2),
           'duration': duration, 'sample_rate': rate, 'channels': wave.shape[0],
           'peak': float(wave.abs().max()), 'rms': float(wave.square().mean().sqrt()),
-          'sampling': sampling, 'conditioning_reused': bool(cache_name), 'decode':getattr(pipe,'_localmuse_decode_info',None), 'profile': profile, 'offload': 'automatic CPU + layer streaming'}
+          'sampling': sampling, 'conditioning_reused': bool(cache_name), 'decode':getattr(pipe,'_localmuse_decode_info',None), 'profile': profile,'ending':ending_info, 'offload': 'automatic CPU + layer streaming'}
 job_path.with_suffix('.audio.json').write_text(json.dumps(result), encoding='utf-8')
 progress('完成')
 print(json.dumps(result), flush=True)
