@@ -10,9 +10,10 @@ progress('載入影片文字編碼器')
 import torch,numpy as np
 from transformers import AutoTokenizer,UMT5EncoderModel
 from accelerate import cpu_offload
-from diffusers import WanPipeline,WanImageToVideoPipeline,WanTransformer3DModel,AutoencoderKLWan,UniPCMultistepScheduler,BitsAndBytesConfig
+from diffusers import WanPipeline,WanImageToVideoPipeline,WanTransformer3DModel,AutoencoderKLWan,UniPCMultistepScheduler
+import gpu_backend
 from diffusers.utils import export_to_video
-if not torch.cuda.is_available():raise RuntimeError('Wan 需要 CUDA 顯示卡')
+gpu_backend.require_gpu(torch,'Wan')
 torch.set_num_threads(4)
 started=time.perf_counter()
 def encode():
@@ -39,7 +40,13 @@ if i2v:
   return result
  image_embeds=encode_image();gc.collect();torch.cuda.empty_cache()
 progress('載入 Wan 影片模型')
-if i2v:
+if i2v and not gpu_backend.supports_bitsandbytes():
+ # AMD (experimental): torchao INT8 weight-only instead of bitsandbytes NF4, then stream blocks from CPU.
+ from diffusers import TorchAoConfig
+ transformer=WanTransformer3DModel.from_single_file(str(ROOT/'models/generation/wan-i2v-14b/transformer.safetensors'),config=str(ROOT/'models/generation/wan-i2v-14b/transformer'),torch_dtype=torch.bfloat16,local_files_only=True,quantization_config=TorchAoConfig('int8_weight_only'))
+ transformer.enable_group_offload(onload_device=torch.device('cuda'),offload_device=torch.device('cpu'),offload_type='block_level',num_blocks_per_group=1,use_stream=False)
+elif i2v:
+ from diffusers import BitsAndBytesConfig
  quant=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True)
  from wan_quantization import raw_checkpoint_quantization
  with raw_checkpoint_quantization(progress):

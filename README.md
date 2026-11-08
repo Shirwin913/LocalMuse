@@ -82,7 +82,7 @@ python studio_launcher.py --no-browser
 | 項目 | 本機實測配置／需求 |
 | --- | --- |
 | 作業系統 | Windows；批次檔、可執行檔與目前環境配置以Windows為主 |
-| GPU | NVIDIA RTX 3080 10GB；其他GPU／CPU-only完整流程尚未全面測試 |
+| GPU | NVIDIA RTX 3080 10GB；AMD Radeon 為實驗性支援（尚未實機驗證，見 [native/AMD.md](native/AMD.md)）；沒有支援的顯示卡時只能聊天 |
 | 系統記憶體 | 32GB；大型模型會使用CPU卸載、磁碟映射與權重搬移 |
 | Python | 3.12；基礎Python需已安裝可用的CUDA PyTorch |
 | 生成環境 | 本機已驗證PyTorch 2.6.0＋CUDA 12.4；依賴見各模型文件 |
@@ -425,3 +425,5 @@ Python測試包含模型自動掃描、catalog優先、分片完整性及路徑�
 | [Git與備份](GIT-GUIDE.md) | 程式版本與私人資料的分別備份 |
 
 第三方程式的授權文件隨其原始碼保存在 `native/vendor/` 等對應位置；模型來源、版本與校驗資訊見各manifest或provenance。模型權重不隨此版本庫散布。
+
+圖片生成結果亦支援 [AI 超解析](native/IMAGE-UPSCALING.md)：2× 或長邊 3840 的 4K 輸出，保留原圖。

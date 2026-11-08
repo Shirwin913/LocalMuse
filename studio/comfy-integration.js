@@ -27,7 +27,7 @@ module.exports=(app,upload,history)=>{
  const retention=require('./generation-retention')(db,history);
  require('./studio-routes')(app,db);
  app.get('/api/generation-recipes/:id',(req,res)=>{
-  const row=db.prepare('SELECT r.* FROM generation_recipes r JOIN video_jobs j ON j.id=r.job_id JOIN conversations c ON c.id=j.conversation WHERE j.message_id=? AND c.owner=?').get(req.params.id,req.user.id);
+  const row=db.prepare('SELECT r.* FROM generation_recipes r JOIN video_jobs j ON j.id=r.job_id JOIN conversations c ON c.id=j.conversation WHERE (j.message_id=? OR j.id=?) AND c.owner=?').get(req.params.id,req.params.id,req.user.id);
   if(!row)return res.status(404).json({error:'此作品沒有保存生成設定，或已刪除'});
   res.json({jobId:row.job_id,...JSON.parse(row.settings),references:JSON.parse(row.references_json)});
  });

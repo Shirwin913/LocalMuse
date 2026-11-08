@@ -8,10 +8,12 @@ job_path=Path(sys.argv[1]);job=json.loads(job_path.read_text(encoding='utf-8'));
 def progress(stage,current=0,total=1):progress_path.write_text(json.dumps({'stage':stage,'current':current,'total':total}),encoding='utf-8')
 progress('載入 HeartMuLa 與音訊解碼器')
 import torch,soundfile as sf,numpy as np
-from transformers import BitsAndBytesConfig
 from heartlib.heartcodec.modeling_heartcodec import HeartCodec
 from heartlib import HeartMuLaGenPipeline
-if not torch.cuda.is_available():raise RuntimeError('HeartMuLa 需要可用 CUDA 顯示卡')
+import gpu_backend
+gpu_backend.require_gpu(torch,'HeartMuLa')
+if not gpu_backend.supports_bitsandbytes() and gpu_backend.vram_bytes(torch)<10*1024**3:
+    raise RuntimeError('HeartMuLa 在 AMD 顯示卡上不使用 4-bit 壓縮，需要至少 10GB 顯存')
 torch.set_num_threads(4);torch.manual_seed(job['seed']);torch.cuda.manual_seed_all(job['seed'])
 original_init=HeartCodec.__init__
 def compatible_init(self,*args,**kwargs):
@@ -31,7 +33,10 @@ HeartCodec.from_pretrained=load_cpu
 from audio_decode import decode_audio
 from audio_ending import write_audio
 started=time.perf_counter()
-quant=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True,bnb_4bit_quant_type='nf4')
+if gpu_backend.supports_bitsandbytes():
+    from transformers import BitsAndBytesConfig
+    quant=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True,bnb_4bit_quant_type='nf4')
+else:quant=None # AMD: bitsandbytes 4-bit is not available, load BF16 weights instead
 def generate_codes():
     pipe=HeartMuLaGenPipeline.from_pretrained(str(ROOT/'models/generation/heartmula'),device=torch.device('cuda'),dtype=torch.bfloat16,version='3B',bnb_config=quant)
     for layer in pipe.model.modules():

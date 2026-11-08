@@ -1,17 +1,18 @@
 """Original MiniMax H3 model set, standalone request validation."""
 import json,re
+import gpu_backend
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 MODEL=ROOT/'models/generation/minimax-h3'
-ENGINE=ROOT/'runtime/sd-cpp/sd-cli.exe'
+ENGINE=gpu_backend.sd_engine()
 def installed():
     try:
         data=json.loads((ROOT/'native/h3-model-manifest.json').read_text(encoding='utf-8'))
         return ENGINE.is_file() and len(data['files'])==5 and all((MODEL/x['path']).is_file() and (MODEL/x['path']).stat().st_size==x['size'] for x in data['files'])
     except (OSError,ValueError,KeyError):return False
 def ready(profile='original'):
-    return installed() and (MODEL/('validated-'+profile+'.json')).is_file()
-def high_quality_ready():return ready() and (MODEL/'validated-480p.json').is_file()
+    return installed() and gpu_backend.marker(MODEL,'validated-'+profile+'.json').is_file()
+def high_quality_ready():return ready() and gpu_backend.marker(MODEL,'validated-480p.json').is_file()
 def frame_count(seconds):return max(5,round(seconds*24))+(5-max(5,round(seconds*24))%17)%17
 def lora_application(line):
     match=re.search(r'\((\d+)\s*/\s*(\d+)\)\s+LoRA tensors have been applied',line)

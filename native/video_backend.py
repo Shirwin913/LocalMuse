@@ -1,11 +1,12 @@
 """Validated local Wan video capabilities and bounded request parsing."""
 from pathlib import Path
+import gpu_backend
 ROOT=Path(__file__).resolve().parents[1]
 MODEL=ROOT/'models/generation/wan-1.3b'
 def ready():
- return all((MODEL/p).is_file() for p in ('validated.json','transformer.safetensors','vae.safetensors','text_encoder/model.safetensors.index.json','tokenizer/spiece.model'))
+ return gpu_backend.torch_ready() and gpu_backend.marker(MODEL).is_file() and all((MODEL/p).is_file() for p in ('transformer.safetensors','vae.safetensors','text_encoder/model.safetensors.index.json','tokenizer/spiece.model'))
 def image_ready():
- return ready() and all((ROOT/'models/generation'/p).is_file() for p in ('wan-i2v-14b/validated.json','wan-i2v-14b/transformer.safetensors','ip-adapter/image_encoder/model.safetensors'))
+ return ready() and gpu_backend.marker(ROOT/'models/generation/wan-i2v-14b').is_file() and all((ROOT/'models/generation'/p).is_file() for p in ('wan-i2v-14b/transformer.safetensors','ip-adapter/image_encoder/model.safetensors'))
 def parse_workflow(flow,input_root=None):
  data=next(n['inputs'] for n in flow.values() if n.get('class_type') in ('ProjectWanVideo','ProjectWanImageVideo'))
  i2v=any(n.get('class_type')=='ProjectWanImageVideo' for n in flow.values())

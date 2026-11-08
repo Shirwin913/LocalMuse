@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="webcam.css" />
 <link rel="stylesheet" href="robot.css" />
 <link rel="stylesheet" href="camera-hub.css">
-<link rel="stylesheet" href="avatar.css"><link rel="stylesheet" href="anime-3d.css"><link rel="stylesheet" href="vrm-avatar.css"><script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script><link rel="stylesheet" href="compact-dialog.css"><link rel="stylesheet" href="avatar-view.css"></head>
+<link rel="stylesheet" href="avatar.css"><link rel="stylesheet" href="anime-3d.css"><link rel="stylesheet" href="vrm-avatar.css"><script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script><link rel="stylesheet" href="compact-dialog.css"><link rel="stylesheet" href="avatar-view.css"><link rel="stylesheet" href="ui-polish.css"><link rel="stylesheet" href="quick-start.css"></head>
 <body>
   <main class="app">
     <section class="panel">
@@ -23,7 +23,7 @@
       </div>
 
       <div class="toolbar">
-        <label for="model">模型</label>
+        <label for="model">聊天模型</label>
         <select id="model"></select>
         <button id="refreshModelsBtn" type="button">重新整理</button>
         <button id="clearBtn" type="button">清空</button>
@@ -54,8 +54,11 @@
     </section>
   </main>
 
+  <script src="preferences-sync.js"></script>
+  <script src="error-text.js"></script>
+  <script src="intent.js"></script>
   <script src="app.js"></script>
 <script src="media-access.js"></script>
 <script src="webcam.js"></script>
-<script src="robot.js"></script><script src="camera-hub.js"></script><script src="avatar.js"></script><script src="avatar-view.js"></script><script src="anime-3d.js"></script><script src="custom-vrm.js"></script><script src="vrm-avatar.js"></script><script src="compact-dialog.js"></script><script src="avatar-motion.js"></script></body>
+<script src="robot.js"></script><script src="camera-hub.js"></script><script src="avatar.js"></script><script src="avatar-view.js"></script><script src="anime-3d.js"></script><script src="custom-vrm.js"></script><script src="vrm-avatar.js"></script><script src="compact-dialog.js"></script><script src="avatar-motion.js"></script><script src="ui-polish.js"></script><script src="quick-start.js"></script></body>
 </html>

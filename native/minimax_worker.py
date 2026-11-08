@@ -17,8 +17,8 @@ progress('載入 MiniMax 音樂模型')
 import torch, soundfile as sf
 from diffusers import ComponentsManager, ModularPipeline
 from diffusers.hooks import apply_group_offloading
-if not torch.cuda.is_available():
-    raise RuntimeError('MiniMax Music 3 需要 CUDA 顯示卡')
+import gpu_backend
+gpu_backend.require_gpu(torch, 'MiniMax Music 3')
 started = time.perf_counter()
 manager = ComponentsManager()
 manager.enable_auto_cpu_offload(device='cuda', memory_reserve_margin='1GB')

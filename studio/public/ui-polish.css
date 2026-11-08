@@ -1,0 +1,68 @@
+/* UI polish: compact layout, button emphasis, readable generation errors. */
+
+/* Generation errors: short message first, raw output folded away. */
+.generation-error{display:grid;gap:6px;padding:10px 12px;border:1px solid color-mix(in srgb,#d9534f 45%,var(--line,#ddd));border-radius:12px;background:color-mix(in srgb,#d9534f 8%,var(--surface,#fff))}
+.generation-error strong{color:var(--text,#222);font-size:13px}
+.generation-error p{margin:0;font-size:12px;line-height:1.6;color:var(--muted,#666)}
+.generation-error details summary{cursor:pointer;font-size:12px;color:var(--muted,#666)}
+.generation-error pre{margin:6px 0 0;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;line-height:1.5;padding:8px;border-radius:8px;background:color-mix(in srgb,var(--text,#222) 6%,transparent)}
+.studio-card .retry-generation{background:var(--accent,#5b4a8b);color:var(--accent-text,#fff);border-color:transparent}
+
+/* Seed / restore bar: only where it matters, and never louder than "generate". */
+.recipe-bar[hidden],.recipe-bar .recipe-clear[hidden]{display:none!important}
+.recipe-bar .recipe-clear{background:transparent!important;color:var(--muted,#666)!important;border:1px solid var(--line,#ddd)!important;box-shadow:none!important;font-weight:500}
+.recipe-bar .recipe-clear:hover{color:var(--text,#222)!important;background:color-mix(in srgb,var(--text,#222) 6%,transparent)!important}
+
+/* Face-to-face: the instructions point at "開始對話", so that is the primary action. */
+.robot-actions #robotContinuous{background:var(--accent,#476751);color:var(--accent-text,#fff);border-color:transparent}
+.robot-actions #robotMic{background:var(--raised,#f4f5f6);color:var(--text,#252a32);border-color:var(--line,#ddd)}
+.robot-actions #robotMic:active,.robot-actions #robotMic[aria-pressed="true"]{background:var(--accent,#476751);color:var(--accent-text,#fff);border-color:transparent}
+
+/* Compact layout (narrow windows): conversation list becomes a drawer. */
+.sidebar-toggle,.sidebar-backdrop{display:none}
+@media(max-width:800px){
+ .app{padding:0!important;gap:0!important;height:100dvh}
+ .panel{height:100dvh!important;max-height:none!important;border-radius:0!important;border:0!important;flex:1;min-height:0}
+ .sidebar-toggle{display:inline-grid;place-items:center;flex-shrink:0;width:40px;height:40px;padding:0;border:1px solid var(--line,#ddd);border-radius:12px;background:var(--surface,#fff);color:var(--text,#222);font-size:18px;line-height:1;cursor:pointer}
+ .sidebar-backdrop{display:block;position:fixed;inset:0;z-index:58;background:#0008;opacity:0;pointer-events:none;transition:opacity .2s ease}
+ body.sidebar-open .sidebar-backdrop{opacity:1;pointer-events:auto}
+ .conversation-sidebar{position:fixed!important;top:0;bottom:0;left:0;z-index:60;width:min(300px,86vw)!important;height:100dvh!important;max-height:none!important;padding:18px 14px!important;gap:14px!important;border-radius:0 18px 18px 0!important;box-shadow:0 0 48px #0006;transform:translateX(-105%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s}
+ body.sidebar-open .conversation-sidebar{transform:none;visibility:visible;transition:transform .22s ease}
+ .conversation-sidebar h2,.conversation-sidebar small{display:block!important}
+ .conversation-sidebar nav{display:block!important;overflow-y:auto!important;flex:1;min-height:0}
+ .conversation-sidebar .conversation-row{min-width:0!important;max-width:none!important;width:100%}
+ .header{padding:10px 12px!important;gap:10px!important}
+ .header p{display:none}
+ .header h1{font-size:15px!important}
+ .chat{padding:16px 14px!important}
+ .composer-drawer.is-open .drawer-clip{max-height:42dvh;overflow-y:auto!important}
+ .top-tools-drawer.is-open .top-tools-clip{max-height:36dvh;overflow-y:auto!important}
+}
+@media(max-height:760px){
+ .composer-drawer.is-open .drawer-clip{max-height:40dvh;overflow-y:auto!important}
+}
+@media(prefers-reduced-motion:reduce){.conversation-sidebar,.sidebar-backdrop{transition:none!important}}
+.studio-card-preview .generation-error{align-self:stretch;justify-self:stretch;width:100%;max-height:100%;overflow:auto;text-align:left}
+
+/* Notification toggle and music estimate */
+.generation-progress .notify-toggle{justify-self:start;margin-top:6px;padding:4px 10px;min-height:0;font-size:12px;border:1px solid var(--line,#ddd);border-radius:999px;background:transparent;color:var(--muted,#666);cursor:pointer}
+.generation-progress .notify-toggle[aria-pressed="true"]{color:var(--accent,#5b4a8b);border-color:var(--accent,#5b4a8b)}
+.music-estimate{display:block;color:var(--muted,#666);font-size:12px;margin:-2px 0 6px}
+
+/* Works library: media facts under each card */
+.studio-media-meta{display:block;color:var(--muted,#666);font-size:12px;line-height:1.6}
+
+/* Local models table */
+.local-models-dialog{width:min(860px,94vw)!important;max-width:none!important}
+.local-models-dialog table{width:100%;border-collapse:collapse;font-size:13px}
+.local-models-dialog th,.local-models-dialog td{padding:9px 10px;border-bottom:1px solid var(--line,#ddd);text-align:left;vertical-align:top}
+.local-models-dialog th{font-size:12px;color:var(--muted,#666);font-weight:600;position:sticky;top:0;background:var(--surface,#fff)}
+.local-models-dialog td.size{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.local-models-dialog th.size{text-align:right}
+.local-models-dialog td small{display:block;color:var(--muted,#666);font-size:11px;word-break:break-all;margin-top:2px}
+.local-models-dialog tfoot td{font-weight:650;border-bottom:0}
+.local-models-dialog .table-wrap{max-height:60dvh;overflow:auto;margin:12px 0}
+.model-state{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;white-space:nowrap;background:color-mix(in srgb,var(--accent,#5b4a8b) 14%,transparent);color:var(--text,#222)}
+.model-state.missing{background:color-mix(in srgb,#d9534f 18%,transparent)}
+.model-state.unverified{background:color-mix(in srgb,#e0a400 20%,transparent)}
+@media(max-width:600px){.local-models-dialog th.kind,.local-models-dialog td.kind{display:none}}

@@ -1,0 +1,2 @@
+// Runs in <head> before first paint so the page never flashes the old dark theme.
+try{const v=JSON.parse(localStorage.getItem('chat-appearance-vars-v1'));if(v&&v['--surface']){const r=document.documentElement;for(const[k,x]of Object.entries(v))if(k.startsWith('--')&&typeof x==='string')r.style.setProperty(k,x);r.style.setProperty('--scheme',v.tone==='light'?'light':'dark');r.dataset.syncedTheme=v.tone==='light'?'light':'dark';}}catch{}

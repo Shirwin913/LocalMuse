@@ -501,7 +501,7 @@ async function checkVideoJobs(){
   renderGenerationProgress(ongoing[0]||jobs.at(-1));
   const failed=jobs.filter(j=>j.status==='error');
   if(ongoing.length)videoStatus.textContent=ongoing.map(j=>(j.status==='running'?'獨立生成引擎 正在生成…':'生成任務排隊中…')+(j.error?' '+j.error:'')).join('\n');
-  else if(failed.length&&jobs.at(-1)?.status==='error')videoStatus.textContent='生成失敗：'+failed.at(-1).error;
+  else if(failed.length&&jobs.at(-1)?.status==='error')videoStatus.textContent='生成失敗：'+generationErrorSummary(failed.at(-1).error);
   else if(jobs.length)videoStatus.textContent='';
   else if(!busyUI)videoStatus.textContent='';
   for(const job of jobs){
@@ -679,15 +679,8 @@ input.addEventListener('paste', (event) => {
  window.chatSpeech={stop,attach(div,text){if(!supported)return;const button=document.createElement('button');button.type='button';button.className='speech-reply-button';button.textContent='🔊 朗讀';button.setAttribute('aria-pressed','false');button.onclick=()=>activeButton===button?stop():speak(text,button);div.append(button);},auto(text){if(prefs.auto)speak(text);}};
 })();
 
-function detectVideoIntent(text,hasImage){
- const t=text.trim();
- if(/不要|不用|不想|沒有要|沒有想|不是要|別幫|先別|如何|怎麼|為什麼|為何|教我|解釋|分析|討論|提示詞|提示词|能不能|可以嗎|可以吗|\?|？|\b(how|why|explain|don't|do not)\b/i.test(t))return 'chat';
- if(/^(?:(?:請|请)(?:幫我|帮我)?|幫我|帮我|我要你|現在幫我|现在帮我)?\s*(?:生成|製作|制作|產生)(?:一首|一段|一個|一个)?[^。！？\n]{0,30}(?:音樂|音乐|歌曲|配樂|配乐)|^(?:please\s+)?(?:generate|create|make)\s+[^.!?\n]{0,40}\b(?:music|song|soundtrack)\b/i.test(t))return 'music';
- const imageRequest=/^(?:(?:請|请)(?:幫我|帮我)?|幫我|帮我|我要你|現在幫我|现在帮我)?\s*(?:生成|製作|制作|產生|畫|画|繪製|绘制)(?:一張|一张|一幅|一個|一个)?[^。！？\n]{0,30}(?:圖片|图片|圖像|图像|插畫|插画|照片)|^(?:please\s+)?(?:generate|create|make|draw)\s+[^.!?\n]{0,40}\b(?:image|picture|illustration|photo)\b/i.test(t);
- if(imageRequest&&!/(?:影片|視頻|视频|動畫|动画|video|animation)/i.test(t))return hasImage?'image-edit':'text-image';
- const request=/^(?:(?:請|请)(?:幫我|帮我)?|幫我|帮我|我要你|現在幫我|现在帮我)?\s*(?:(?:生成|製作|制作|產生|做)(?:一段|一個|一个|一支|個|个)?[^。！？\n]{0,30}(?:影片|視頻|视频|短片|動畫|动画)|把(?:這張|这张|這個|这个)?(?:圖片|图片|照片)[^。！？\n]{0,10}(?:動起來|动起来|轉成影片|转成视频))|^(?:please\s+)?(?:generate|create|make)\s+[^.!?\n]{0,40}\b(?:video|animation|clip)\b/i.test(t);
- return request?(hasImage?'video':'text-video'):'chat';
-}
+// Rules live in intent.js (tested in studio/intent.test.js).
+function detectVideoIntent(text,hasImage){const route=detectCreationIntent(text,hasImage);const option=[...document.getElementById('creationMode').options].find(o=>o.value===route);return route==='chat'||(option&&!option.disabled)?route:'chat';}
 function resolveCreationMode(){return creationMode.value==='auto'?detectVideoIntent(input.value,Boolean(selectedFile?.type.startsWith('image/'))):creationMode.value;}
 const routeHint=document.createElement('small');routeHint.setAttribute('role','status');creationTools.append(routeHint);
 function updateRouteHint(){const route=resolveCreationMode();routeHint.textContent=creationMode.value==='auto'?'本次判斷：'+({chat:'一般聊天',video:'圖片生成影片','text-video':'文字生成影片',music:'音樂生成','text-image':'文字生成圖片','image-edit':'圖片編輯'}[route]):'';}
@@ -715,6 +708,12 @@ function attachGeneratedImage(container,id,generated=false){const img=document.c
  });};container.append(edit);attachVideoAnalysis(container,id,true);
  container.classList.add('generated-image-message');
  const actions=document.createElement('div');actions.className='image-result-actions';actions.setAttribute('role','group');actions.setAttribute('aria-label','圖片操作');img.after(actions);actions.append(edit);
+ const srMode=document.createElement('select');srMode.setAttribute('aria-label','圖片超解析尺寸');srMode.innerHTML='<option value="4k">4K（長邊 3840）</option><option value="2x">2× 超解析</option>';
+ const sr=document.createElement('button');sr.type='button';sr.textContent='AI 超解析';sr.title='Real-ESRGAN 分塊放大，保留原圖；細節可能改變。';
+ const srStatus=document.createElement('span');srStatus.setAttribute('role','status');
+ sr.classList.add('image-upscale-action');srMode.classList.add('image-upscale-mode');srStatus.classList.add('image-upscale-status');
+ sr.onclick=async()=>{sr.disabled=true;srMode.disabled=true;const mode=srMode.value;srStatus.textContent='超解析中，請稍候（可需數分鐘）…';try{const response=await fetch('/api/image-upscale/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});const result=await response.json();if(!response.ok)throw Error(result.error||'超解析失敗');const url='/api/image-upscale/'+id+'/'+mode;img.src=url;srStatus.textContent=result.width+' × '+result.height+' · '+result.seconds+' 秒';let link=actions.querySelector('.sr-download');if(!link){link=document.createElement('a');link.className='sr-download';actions.append(link);}link.href=url+'?download=1';link.textContent='下載超解析圖片';}catch(error){srStatus.textContent=error.message;}finally{sr.disabled=false;srMode.disabled=false;}};
+ actions.append(srMode,sr,srStatus);
  const recipe=container.querySelector(':scope > .reuse-recipe');if(recipe)actions.append(recipe);
  // Download links are appended by both history rendering and live completion.
  queueMicrotask(()=>{for(const link of container.querySelectorAll(':scope > a')){if(link.getAttribute('href')==='/api/attachments/'+id){link.classList.add('image-download-action');link.textContent='下載圖片';actions.append(link);}}});
@@ -762,7 +761,7 @@ const generationProgress=document.createElement('div');generationProgress.classN
 const progressLabel=document.createElement('div'),progressBar=document.createElement('progress'),progressNote=document.createElement('small');progressBar.max=100;progressBar.setAttribute('aria-label','目前生成階段進度');progressLabel.setAttribute('role','status');generationProgress.append(progressLabel,progressBar,progressNote);creationTools.before(generationProgress);
 function renderGenerationProgress(job){if(!job){generationProgress.hidden=true;return;}generationProgress.hidden=false;progressBar.removeAttribute('value');progressNote.textContent='百分比表示目前採樣階段，不包含載入、解碼與存檔時間。';
  if(job.status==='done'){progressLabel.textContent='最近一筆任務已完成';progressBar.value=100;progressNote.textContent='結果已儲存在對話中。';return;}
- if(job.status==='error'){progressLabel.textContent='生成失敗';progressBar.value=0;progressNote.textContent=job.error||'請查看錯誤訊息後重試。';return;}
+ if(job.status==='error'){progressLabel.textContent='生成失敗';progressBar.value=0;progressNote.textContent=job.error?generationErrorSummary(job.error):'請查看錯誤訊息後重試。';return;}
  if(job.error){progressLabel.textContent=job.error;return;}
  const p=job.progress;
  if(p&&Number.isFinite(p.value)&&p.max>0){const percent=Math.floor(p.value/p.max*100);progressLabel.textContent=p.stage+' · '+p.value+' / '+p.max+' 步（'+percent+'%）';progressBar.value=percent;}
@@ -784,13 +783,27 @@ const recipeBar=document.createElement('div');recipeBar.className='recipe-bar';
 recipeBar.innerHTML='<label>種子 <input type="number" min="0" step="1" placeholder="留白：每次隨機" aria-label="生成種子"></label><span></span><button type="button">清除原始設定</button>';
 creationTools.after(recipeBar);
 const recipeSeed=recipeBar.querySelector('input'),recipeInfo=recipeBar.querySelector('span');
-recipeBar.querySelector('button').onclick=()=>{restoredRecipe=null;recipeSeed.value='';recipeInfo.textContent='下次使用目前工作流程與隨機種子';};
+const recipeClear=recipeBar.querySelector('button');recipeClear.className='recipe-clear';
+// Seed and "clear" only matter for generation; hide them for plain chat unless a recipe is loaded.
+function syncRecipeBar(){let route=creationMode.value;try{if(route==='auto')route=resolveCreationMode();}catch{}recipeBar.hidden=route==='chat'&&!restoredRecipe&&!recipeSeed.value;recipeClear.hidden=!restoredRecipe&&!recipeSeed.value;}
+creationMode.addEventListener('change',syncRecipeBar);input.addEventListener('input',syncRecipeBar);recipeSeed.addEventListener('input',syncRecipeBar);
+new MutationObserver(syncRecipeBar).observe(recipeInfo,{childList:true,characterData:true,subtree:true});new MutationObserver(syncRecipeBar).observe(filePreview,{childList:true});
+recipeClear.onclick=()=>{restoredRecipe=null;recipeSeed.value='';recipeInfo.textContent='下次使用目前工作流程與隨機種子';};
+syncRecipeBar();
 function attachRecipeButton(container,id){
  if(container.querySelector('.reuse-recipe'))return;
  const button=document.createElement('button');button.type='button';button.className='reuse-recipe';button.textContent='帶入這次生成設定';container.append(button);
- button.onclick=()=>runAction(async()=>{
+ button.onclick=()=>runAction(()=>restoreRecipe(id));
+}
+async function restoreRecipe(id,fallback){
   const conversation=activeId;
-  const data=await api('/api/generation-recipes/'+id);
+  let data;try{data=await api('/api/generation-recipes/'+id);}catch(e){
+   if(!fallback)throw e;
+   // Older or partial records: bring back what the task list knows and let the user check the rest.
+   if(input.value.trim()&&!await askConfirm('以這次任務的提示詞取代目前草稿？'))return;
+   creationMode.value=fallback.mode;input.value=fallback.prompt||'';creationMode.onchange();document.querySelector('.composer-drawer-handle[aria-expanded="false"]')?.click();input.focus();
+   videoStatus.textContent='找不到完整的原始設定，已帶入提示詞與類型；請確認其他設定後再按生成。';return;
+  }
   if((input.value.trim()||editFiles.length||selectedFile||musicLyrics.value)&&!await askConfirm('以這次作品的提示詞、參考圖與設定取代目前草稿？'))return;
   const files=[];
   for(const ref of data.references){const response=await fetch('/api/attachments/'+ref.id+'?preview=1');if(!response.ok)throw Error('參考圖片讀取失敗');const blob=await response.blob();files.push(new File([blob],ref.name,{type:ref.type}));}
@@ -800,8 +813,7 @@ function attachRecipeButton(container,id){
   savedVideoSettings[data.mode]={ratio:data.ratio,megapixels:data.megapixels,seconds:data.seconds};
   musicModelSelect.value=data.musicModel||'minimax';musicFlowSelect.value=data.musicProfile||'reference';syncMusicModel();musicLyrics.value=data.lyrics||'';musicDuration.value=data.duration||60;musicEndingSelect.value=data.musicEnding||'none';input.value=data.prompt;
   restoredRecipe={jobId:data.jobId,mode:data.mode};recipeSeed.value=data.seed;recipeInfo.textContent='已帶入原始流程與種子；相同設定仍可能有細微差異';
-  renderEditFiles();renderFilePreview();creationMode.onchange();input.focus();videoStatus.textContent='設定與參考圖已恢復；確認後按生成。';
- });
+  renderEditFiles();renderFilePreview();creationMode.onchange();if(fallback)document.querySelector('.composer-drawer-handle[aria-expanded="false"]')?.click();input.focus();videoStatus.textContent='設定與參考圖已恢復；確認後按生成。';
 }
 function attachTransferButton(container,text){
  const button=document.createElement('button');button.type='button';button.className='transfer-generation';button.textContent='帶入生成…';container.append(button);
@@ -889,7 +901,7 @@ function createHeaderMenu(label){
  const arrow=document.createElement('span');arrow.className='drawer-arrow';arrow.textContent='⌃';arrow.setAttribute('aria-hidden','true');
  handle.append(grip,label,model,arrow);toolbar.before(drawer);clip.append(toolbar);track.append(clip);drawer.append(track,handle);
  let open=true;try{open=localStorage.getItem('chat-tools-expanded-v1')!=='false';}catch{}
- function update(){drawer.classList.toggle('is-open',open);handle.setAttribute('aria-expanded',String(open));handle.title=open?'收合對話工具':'展開對話工具';track.inert=!open;model.textContent=open?'':(modelSelect.selectedOptions[0]?.textContent||'選擇模型');}
+ function update(){drawer.classList.toggle('is-open',open);handle.setAttribute('aria-expanded',String(open));handle.title=open?'收合對話工具':'展開對話工具';track.inert=!open;model.textContent=open?'':'聊天模型：'+(modelSelect.selectedOptions[0]?.textContent||'未選擇');}
  let settleTimer;
  function settle(){clearTimeout(settleTimer);drawer.classList.remove('drawer-settled');if(open)settleTimer=setTimeout(()=>{if(open)drawer.classList.add('drawer-settled');},460);}
  function toggle(){open=!open;settle();if(!open){if(track.contains(document.activeElement))handle.focus();toolbar.querySelectorAll('details[open]').forEach(el=>el.open=false);}update();try{localStorage.setItem('chat-tools-expanded-v1',String(open));}catch{}}
@@ -970,7 +982,7 @@ musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music
    clearInterval(ticker);clock();bar.value=100;label.textContent='生成完成';note.textContent='結果已儲存在對話中。';hideTimer=setTimeout(clear,2200);return;
   }
   if(job.status==='error'){
-   clearInterval(ticker);clearTimeout(hideTimer);hideTimer=null;current=null;strip.hidden=false;elapsed.textContent='';bar.removeAttribute('value');bar.hidden=true;label.textContent='生成失敗';note.textContent=job.error||'請展開設定查看錯誤後重試。';return;
+   clearInterval(ticker);clearTimeout(hideTimer);hideTimer=null;current=null;strip.hidden=false;elapsed.textContent='';bar.removeAttribute('value');bar.hidden=true;label.textContent='生成失敗';note.textContent=job.error?generationErrorSummary(job.error):'請展開設定查看錯誤後重試。';return;
   }
  };
  // Restore bar after an error when a new job begins.
@@ -988,6 +1000,16 @@ musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music
  const modes={'text-image':'文字生成圖片','image-edit':'圖片編輯',video:'圖片生成影片','text-video':'文字生成影片',music:'音樂'};
  function text(tag,value){const el=document.createElement(tag);el.textContent=value;return el;}
  function button(name,fn){const el=text('button',name);el.type='button';el.onclick=fn;return el;}
+ function mediaMeta(item,media){
+  const meta=text('small','');meta.className='studio-media-meta';const facts=[];
+  const clock=s=>{s=Math.round(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  const endings={fade8:'收尾：末段淡出 8 秒',fade12:'收尾：末段淡出 12 秒'};
+  const size=item.bytes?(item.bytes>=1048576?(item.bytes/1048576).toFixed(1)+' MB':Math.max(1,Math.round(item.bytes/1024))+' KB'):'';
+  const render=()=>{meta.textContent=[...facts,item.mode==='music'?endings[item.musicEnding]:'',size].filter(Boolean).join(' · ');};
+  if(media.tagName!=='IMG')media.addEventListener('loadedmetadata',()=>{if(Number.isFinite(media.duration))facts.push('長度 '+clock(media.duration));if(media.videoWidth)facts.push(media.videoWidth+'×'+media.videoHeight);render();},{once:true});
+  render();return meta;
+ }
+ function errorBlock(raw){const info=describeGenerationError(raw);const box=document.createElement('div');box.className='generation-error';box.setAttribute('role','note');box.append(text('strong',info.title));if(info.hint)box.append(text('p',info.hint));if(info.details){const more=document.createElement('details');more.append(text('summary','技術細節'),text('pre',info.details));box.append(more);}return box;}
  async function load(){const ticket=++serial;status.textContent='讀取中…';try{
   const data=await api('/api/studio?'+new URLSearchParams({view:view.value,kind:kind.value,page}));if(ticket!==serial||!dialog.open)return;
   grid.replaceChildren();status.textContent=data.total?'共 '+data.total+' 筆；只顯示自己的生成任務。':'目前沒有符合條件的紀錄。';
@@ -1001,11 +1023,11 @@ musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music
    if(item.expired_at)card.append(text('p','作品已到期清除'));
    else if(item.expires_at)card.append(text('p','請於 '+new Date(item.expires_at).toLocaleString()+' 前下載；到期後排程清除。'));
    if(item.prompt){const details=document.createElement('details');details.append(text('summary','查看提示詞'),text('p',item.prompt));card.append(details);}
-   if(item.error)card.append(text('p',item.error));
-   if(item.status==='done'&&!item.expired_at&&item.mime){let media;if(item.mime.startsWith('image/')){media=document.createElement('img');media.src='/api/attachments/'+item.message_id+'?preview=1';media.alt=item.prompt||'生成圖片';media.loading='lazy';}else{media=document.createElement(item.mime.startsWith('audio/')?'audio':'video');media.src='/api/'+(item.mime.startsWith('audio/')?'audio/':'videos/')+item.message_id;media.controls=true;media.preload='none';}card.append(media);const link=text('a','下載原始檔');link.href='/api/attachments/'+item.message_id;card.append(link);}
+   if(item.error)card.append(errorBlock(item.error));
+   if(item.status==='done'&&!item.expired_at&&item.mime){let media;if(item.mime.startsWith('image/')){media=document.createElement('img');media.src='/api/attachments/'+item.message_id+'?preview=1';media.alt=item.prompt||'生成圖片';media.loading='lazy';}else{media=document.createElement(item.mime.startsWith('audio/')?'audio':'video');media.src='/api/'+(item.mime.startsWith('audio/')?'audio/':'videos/')+item.message_id;media.controls=true;media.preload='metadata';}card.append(media,mediaMeta(item,media));const link=text('a','下載原始檔');link.href='/api/attachments/'+item.message_id;card.append(link);}
    card.append(button('開啟原對話',()=>{dialog.close();runAction(()=>openConversation(item.conversation));}));
    if(item.status==='done'&&item.hasRecipe){const holder=document.createElement('div');attachRecipeButton(holder,item.message_id);const reuse=holder.querySelector('button');reuse.addEventListener('click',()=>dialog.close());card.append(holder);}
-   if(item.status==='error')card.append(text('small','開啟原對話，確認提示詞與設定後可手動重試。'));
+   if(item.status==='error'){const retry=button('重試（帶入原設定）',()=>{dialog.close();runAction(async()=>{await openConversation(item.conversation);await restoreRecipe(item.id,{mode:item.mode,prompt:item.prompt});});});retry.className='retry-generation';retry.title='開啟原對話並帶入這次的提示詞與設定，確認後再按生成';card.append(retry);}
    const info=document.createElement('div');info.className='studio-card-info';
    const preview=document.createElement('div');preview.className='studio-card-preview';
    const actions=document.createElement('div');actions.className='studio-card-actions';
@@ -1014,7 +1036,7 @@ musicModelSelect.onchange=()=>{syncMusicModel();if(restoredRecipe?.mode==='music
     else if(['BUTTON','A'].includes(child.tagName)||child.querySelector('.reuse-recipe'))actions.append(child);
     else info.append(child);
    }
-   if(!preview.children.length)preview.append(text('span',item.status==='error'?'此次任務沒有產生作品':'等待生成結果'));
+   const errorBox=info.querySelector('.generation-error');if(errorBox)preview.append(errorBox);if(!preview.children.length)preview.append(text('span',item.status==='error'?'此次任務沒有產生作品':'等待生成結果'));
    card.append(info,preview,actions);
    grid.append(card);
   }
@@ -1056,6 +1078,20 @@ const imageModelRow=document.createElement('label');imageModelRow.className='app
 const imageModelSelect=document.createElement('select');imageModelSelect.id='imageModel';imageModelSelect.setAttribute('aria-label','圖片模型');imageModelSelect.innerHTML='<option value="sdxl-turbo">SDXL Turbo（快速）</option><option value="qwen-image-2.1" disabled>Qwen Image 2.1（原模型，25步）</option>';imageModelRow.append(imageModelSelect);creationTools.after(imageModelRow);
 function syncImageModelRow(){imageModelRow.hidden=!['text-image','image-edit'].includes(resolveCreationMode());const qwen=imageModelSelect.value==='qwen-image-2.1';imageMethodLabel.hidden=qwen;imageMethodSelect.disabled=qwen;if(qwen&&resolveCreationMode()==='image-edit'){editHelp.textContent='Qwen Image 2.1：依文字指令編輯參考圖片。目前每次一張圖片。';form.querySelector('[type=submit]').textContent='編輯圖片';}else if(!qwen)imageMethodSelect.onchange();}
 creationMode.addEventListener('change',syncImageModelRow);input.addEventListener('input',syncImageModelRow);syncImageModelRow();
+// Visible composer shortcut for the latest generated image in this conversation.
+const upscalePanel=document.createElement('div');upscalePanel.className='image-upscale-panel';upscalePanel.style.cssText='padding:12px 0;display:flex;flex-wrap:wrap;align-items:center;gap:10px';
+const upscaleLabel=document.createElement('strong');upscaleLabel.textContent='圖片超解析';
+const upscaleSize=document.createElement('select');upscaleSize.setAttribute('aria-label','生成設定中的超解析尺寸');upscaleSize.innerHTML='<option value="4k">4K（長邊 3840）</option><option value="2x">2× 放大</option>';
+const upscaleLatest=document.createElement('button');upscaleLatest.type='button';upscaleLatest.textContent='放大此對話最新圖片';
+const upscaleNote=document.createElement('span');upscaleNote.setAttribute('role','status');upscaleNote.style.flexBasis='100%';
+const upscaleView=document.createElement('a');upscaleView.textContent='查看放大圖片';upscaleView.target='_blank';upscaleView.rel='noopener';upscaleView.hidden=true;
+const upscaleDownload=document.createElement('a');upscaleDownload.textContent='下載超解析圖片';upscaleDownload.hidden=true;
+upscalePanel.append(upscaleLabel,upscaleSize,upscaleLatest,upscaleView,upscaleDownload,upscaleNote);imageModelRow.after(upscalePanel);
+function latestUpscaleImage(){return Array.from(chat.querySelectorAll('.generated-image-message')).at(-1);}
+function syncUpscalePanel(){const image=latestUpscaleImage(),button=image?.querySelector('.image-upscale-action'),download=image?.querySelector('.sr-download');upscalePanel.hidden=!['text-image','image-edit'].includes(resolveCreationMode());upscalePanel.style.display=upscalePanel.hidden?'none':'flex';upscaleLatest.disabled=!button||button.disabled;upscaleLatest.textContent=button?.disabled?'正在超解析…':'放大此對話最新圖片';upscaleNote.textContent=image?.querySelector('.image-upscale-status')?.textContent||(button?'對此對話最新生成的圖片放大，保留原圖。完成後會在這裡顯示查看與下載連結。':'此對話還沒有生成圖片。先生成一張圖片，就能使用超解析。');upscaleView.hidden=upscaleDownload.hidden=!download;if(download){upscaleDownload.href=download.href;upscaleView.href=download.href.split('?')[0];if(!button.disabled)upscaleNote.textContent='超解析已完成：'+upscaleNote.textContent+'。請按「查看放大圖片」或「下載超解析圖片」。';}}
+upscaleLatest.onclick=()=>{const image=latestUpscaleImage(),button=image?.querySelector('.image-upscale-action');if(!button||button.disabled)return;image.querySelector('.image-upscale-mode').value=upscaleSize.value;button.click();syncUpscalePanel();};
+new MutationObserver(syncUpscalePanel).observe(chat,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled']});
+creationMode.addEventListener('change',syncUpscalePanel);input.addEventListener('input',syncUpscalePanel);syncUpscalePanel();
 imageModelSelect.onchange=()=>{syncImageModelRow();if(restoredRecipe){restoredRecipe=null;recipeInfo.textContent='圖片模型已變更，使用目前設定生成';}};
 
 const videoModelRow=document.createElement('div');videoModelRow.className='appearance-description generation-model-row';
@@ -1079,7 +1115,7 @@ h3QualitySelect.onchange=()=>{if(h3QualitySelect.value==='480p'){savedVideoSetti
  for(const option of creationMode.options){if(!['auto','chat',...d.modes].includes(option.value)){option.disabled=true;option.hidden=true;}if(option.value==='image-edit')option.textContent='圖生圖／參考圖生成';if(option.value==='text-image')option.textContent='文字生成圖片';if(option.value==='text-video')option.textContent='文字生成影片';if(option.value==='video')option.textContent='圖片生成影片';}
 }catch(e){videoStatus.textContent='獨立生成引擎未就緒：'+e.message;}})();
 
-(()=>{const button=document.createElement('button');button.type='button';button.textContent='本機模型';button.onclick=()=>runAction(async()=>{const d=await api('/api/local-models');const dialog=document.createElement('dialog');dialog.className='appearance-dialog';const title=document.createElement('h2');title.textContent='專案模型清單';dialog.append(title);for(const m of d.models){const card=document.createElement('p');card.textContent=m.label+' · '+m.kind+' · '+(m.bytes/1073741824).toFixed(2)+' GB · '+(m.ready?(m.discovered?'已找到檔案（未驗證）':'已安裝'):'缺少檔案');const detail=document.createElement('small');detail.textContent=m.file;card.append(document.createElement('br'),detail);dialog.append(card);}const note=document.createElement('p');note.textContent='新增聊天模型：將GGUF放進models/或其子資料夾（不含generation/），按上方重新整理模型清單即可。顯示名稱與視覺投影檔可在models/catalog.json設定。圖片、影片和音樂模型仍需相容後端與驗證。';const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>{dialog.close();dialog.remove();};dialog.append(note,close);document.body.append(dialog);dialog.showModal();});document.querySelector('.toolbar').append(button);})();
+(()=>{const button=document.createElement('button');button.type='button';button.textContent='本機模型';button.onclick=()=>runAction(async()=>{const d=await api('/api/local-models');const dialog=document.createElement('dialog');dialog.className='appearance-dialog local-models-dialog';const title=document.createElement('h2');title.textContent='專案模型清單';dialog.append(title);const gb=b=>(b/1073741824).toFixed(1)+' GB';const total=d.models.reduce((n,m)=>n+(m.ready?m.bytes:0),0),missing=d.models.filter(m=>!m.ready).length;const summary=document.createElement('p');summary.className='appearance-description';summary.textContent='共 '+d.models.length+' 個模型，已安裝合計約 '+gb(total)+(missing?'；'+missing+' 個缺少檔案':'')+'。';dialog.append(summary);const wrap=document.createElement('div');wrap.className='table-wrap';const table=document.createElement('table');table.innerHTML='<thead><tr><th>名稱</th><th class="kind">用途</th><th class="size">大小</th><th>狀態</th></tr></thead><tbody></tbody>';const rows=table.querySelector('tbody');for(const m of d.models){const row=rows.insertRow();const name=row.insertCell();name.textContent=m.label;const file=document.createElement('small');file.textContent=m.file;name.append(file);const kind=row.insertCell();kind.className='kind';kind.textContent=m.kind;const size=row.insertCell();size.className='size';size.textContent=gb(m.bytes);const badge=document.createElement('span');badge.className='model-state'+(m.ready?(m.discovered?' unverified':''):' missing');badge.textContent=m.ready?(m.discovered?'已找到（未驗證）':'已安裝'):'缺少檔案';row.insertCell().append(badge);}wrap.append(table);dialog.append(wrap);const note=document.createElement('p');note.textContent='新增聊天模型：將GGUF放進models/或其子資料夾（不含generation/），按上方重新整理模型清單即可。顯示名稱與視覺投影檔可在models/catalog.json設定。圖片、影片和音樂模型仍需相容後端與驗證。';const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>{dialog.close();dialog.remove();};dialog.append(note,close);document.body.append(dialog);dialog.showModal();});document.querySelector('.toolbar').append(button);})();
 
 // Infrequent information stays accessible without crowding the chat toolbar.
 (()=>{const toolbar=document.querySelector('.toolbar');const {menu,content}=createHeaderMenu('更多');menu.classList.add('secondary-tools-menu');for(const button of Array.from(toolbar.querySelectorAll(':scope > button'))){if(['資源監控','本機模型'].includes(button.textContent.trim()))content.append(button);}toolbar.append(menu);})();

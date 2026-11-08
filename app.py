@@ -7,6 +7,7 @@ import time
 import urllib.request
 import urllib.error
 import webbrowser
+import tempfile
 from pathlib import Path
 from model_catalog import load_catalog
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -20,6 +21,18 @@ def catalog():
 
 def models():
     return {key: str(ROOT / 'models' / item['model']) for key, item in catalog().items()}
+
+def open_engine_log():
+    """Open the llama.cpp log. engine.log can be locked by sync tools, antivirus or a leftover
+    process, so fall back instead of refusing to start the chat model."""
+    last = None
+    for path in (ROOT / 'engine.log', ROOT / 'runtime' / 'logs' / 'engine.log', Path(tempfile.gettempdir()) / 'LocalMuse' / 'engine.log'):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return path.open('w', encoding='utf-8')
+        except OSError as exc:
+            last = exc
+    raise RuntimeError('無法建立模型記錄檔（engine.log）：' + str(last))
 
 class Engine:
     def __init__(self, gpu_layers):
@@ -59,7 +72,7 @@ class Engine:
         self.error = None
         try:
             self.stop()
-            self.log = (ROOT / 'engine.log').open('w', encoding='utf-8')
+            self.log = open_engine_log()
             extra = []
             item = catalog()[name]
             if vision:
@@ -72,7 +85,7 @@ class Engine:
                 stdout=self.log, stderr=subprocess.STDOUT)
             for _ in range(180):
                 if self.process.poll() is not None:
-                    raise RuntimeError('模型載入失敗，請查看 engine.log，或選擇其他模型。')
+                    raise RuntimeError('模型載入失敗，請查看 ' + self.log.name + '，或選擇其他模型。')
                 try:
                     with urllib.request.urlopen(ENGINE_URL + '/health', timeout=1) as response:
                         if response.status == 200:
@@ -81,7 +94,7 @@ class Engine:
                             return
                 except (urllib.error.URLError, TimeoutError):
                     time.sleep(1)
-            raise RuntimeError('模型載入逾時，請查看 engine.log。')
+            raise RuntimeError('模型載入逾時，請查看 ' + self.log.name + '。')
         except Exception as exc:
             self.error = str(exc)
             self.stop()

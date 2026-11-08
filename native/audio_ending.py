@@ -1,8 +1,6 @@
 """Optional amplitude-only endings. Never claim to compose a musical cadence."""
 import os
 from pathlib import Path
-import numpy as np
-import soundfile as sf
 
 MODES={'none':0,'fade8':8,'fade12':12}
 def validate_ending(value):
@@ -10,6 +8,9 @@ def validate_ending(value):
     return value
 
 def fade_file(source,destination,mode):
+    import numpy as np
+    import soundfile as sf
+
     validate_ending(mode)
     source,destination=Path(source),Path(destination)
     if mode=='none' or source.resolve()==destination.resolve():raise ValueError('Fade requires a separate destination and fade mode')
@@ -36,6 +37,8 @@ def fade_file(source,destination,mode):
     return {'mode':mode,'method':'cosine-amplitude-fade','fade_seconds':fade_frames/rate,'terminal_silence_seconds':quiet_frames/rate,'start_seconds':start/rate,'duration':frames/rate,'source_file':source.name,'natural_cadence_guaranteed':False}
 
 def write_audio(wave,rate,destination,mode='none'):
+    import soundfile as sf
+
     validate_ending(mode);destination=Path(destination)
     source=destination if mode=='none' else destination.with_name(destination.stem+'.original.wav')
     sf.write(source,wave,rate,subtype='PCM_16')

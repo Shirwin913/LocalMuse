@@ -14,7 +14,8 @@ progress('載入 SDXL Turbo')
 import torch
 from PIL import Image,ImageOps
 from diffusers import StableDiffusionXLPipeline,StableDiffusionXLImg2ImgPipeline
-if not torch.cuda.is_available():raise RuntimeError('獨立生成需要可用的 CUDA 顯示卡')
+import gpu_backend
+gpu_backend.require_gpu(torch,'獨立生成')
 config=json.loads((ROOT/'models/generation/catalog.json').read_text(encoding='utf-8'))['models'][0]
 folder=ROOT/'models/generation'
 reference=job.get('image_method')=='reference'

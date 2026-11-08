@@ -1,0 +1,24 @@
+# AMD Radeon (experimental). Installed into runtime/generation-env-amd by native/setup_amd.py.
+# torch / torchvision / torchaudio come from AMD's official ROCm wheels, installed first;
+# this environment does NOT use the system Python packages, so every dependency is listed.
+diffusers==0.36.0
+transformers==4.57.3
+accelerate==1.12.0
+numpy==1.26.4
+huggingface-hub==0.36.2
+tokenizers==0.22.2
+safetensors==0.6.2
+sentencepiece==0.2.1
+protobuf==5.29.5
+pillow==11.3.0
+soundfile==0.13.1
+tqdm==4.67.1
+einops==0.8.1
+
+# HeartMuLa: BF16 on AMD (bitsandbytes 4-bit is only used on NVIDIA in this project)
+torchtune==0.5.0
+torchao==0.14.1
+vector-quantize-pytorch==1.31.6
+
+# Local video container export
+imageio-ffmpeg==0.6.0

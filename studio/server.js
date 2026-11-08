@@ -32,8 +32,10 @@ app.get('/api/generation-engine',async(req,res)=>{try{const response=await fetch
 require('./comfy-integration')(app, upload, history);
 require('./video-analysis')(app, history);
 require('./image-analysis')(app, history);
+require('./image-upscale')(app, history);
 require('./webcam-analysis')(app, upload, history, OLLAMA_URL);
 require('./robot-routes')(app, upload, history, OLLAMA_URL);
+require('./preferences-routes')(app, history.db);
 
 app.get('/api/health', async (req, res) => {
   try {

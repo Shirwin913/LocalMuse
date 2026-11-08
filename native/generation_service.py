@@ -10,6 +10,7 @@ from video_backend import ready as video_ready, image_ready as image_video_ready
 from minimax_backend import ready as minimax_ready, parse_workflow as parse_minimax
 from qwen_backend import ready as qwen_ready, parse_workflow as parse_qwen
 from h3_backend import ready as h3_ready, parse_workflow as parse_h3, high_quality_ready as h3_high_quality_ready
+import gpu_backend
 ROOT=Path(__file__).resolve().parents[1]
 DATA=ROOT/'generated'
 for name in ['input','output','jobs']: (DATA/name).mkdir(parents=True,exist_ok=True)
@@ -29,11 +30,10 @@ def run(job):
             job.update(status='error',error='服務已關閉');save(job);return
         job['status']='running';save(job)
         try:
-            env={**os.environ,'PYTHONUTF8':'1','HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1'}
+            env={**os.environ,'PYTHONUTF8':'1','HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1','LOCALMUSE_GPU':gpu_backend.backend()}
             with (DATA/'jobs'/(job['id']+'.log')).open('w',encoding='utf-8') as log:
                 minimax=job.get('model')=='minimax-music3'
-                python=ROOT/('runtime/minimax-env/Scripts/python.exe' if minimax else 'runtime/generation-env/Scripts/python.exe')
-                worker='native/h3_worker.py' if job.get('model')=='minimax-h3' else 'native/qwen_worker.py' if job.get('model')=='qwen-image-2.1' else 'native/minimax_worker.py' if minimax else 'native/video_worker.py' if job['mode'] in ('text-video','video') else 'native/music_worker.py' if job['mode']=='music' else 'native/image_worker.py'
+                python,worker=command(job)
                 child=subprocess.Popen([str(python),str(ROOT/worker),str(DATA/'jobs'/(job['id']+'.json'))],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT)
                 workers[job['id']]=child
                 try:
@@ -50,13 +50,48 @@ def run(job):
         except Exception as exc:job.update(status='error',error=str(exc))
         finally:save(job)
 
-def reference_ready():return (ROOT/'models/generation/ip-adapter/validated.json').is_file() and (ROOT/'models/generation/ip-adapter/adapter.safetensors').is_file() and (ROOT/'models/generation/ip-adapter/image_encoder/model.safetensors').is_file()
+def command(job):
+    """Python runtime and worker script for a job; NVIDIA paths are unchanged, AMD uses its own runtimes."""
+    minimax=job.get('model')=='minimax-music3'
+    python=gpu_backend.minimax_python() if minimax else gpu_backend.generation_python()
+    worker='native/h3_worker.py' if job.get('model')=='minimax-h3' else 'native/qwen_worker.py' if job.get('model')=='qwen-image-2.1' else 'native/minimax_worker.py' if minimax else 'native/video_worker.py' if job['mode'] in ('text-video','video') else 'native/music_worker.py' if job['mode']=='music' else 'native/image_worker.py'
+    return python,worker
+
+def sdxl_ready():
+    if gpu_backend.backend()=='nvidia':return True
+    return gpu_backend.torch_ready() and gpu_backend.marker(ROOT/'models/generation/sdxl-turbo').is_file()
+
+def heartmula_ready():
+    if gpu_backend.backend()=='nvidia':return True
+    return gpu_backend.torch_ready() and gpu_backend.marker(ROOT/'models/generation/heartmula').is_file()
+
+def adjust_capabilities(caps):
+    """NVIDIA capabilities stay as before; other backends only list what passed validation here."""
+    caps['gpu']=gpu_backend.status()
+    if gpu_backend.backend()=='nvidia':return caps
+    if gpu_backend.backend()=='none':
+        caps.update(modes=[],imageModels=[],musicModels=[],videoModels=[],imageMethods=[]);return caps
+    sdxl,heart,qwen,h3,wan,wan_i2v=sdxl_ready(),heartmula_ready(),qwen_ready(),h3_ready(),video_ready(),image_video_ready()
+    caps['imageModels']=(['sdxl-turbo'] if sdxl else [])+(['qwen-image-2.1'] if qwen else [])
+    caps['musicModels']=(['heartmula'] if heart else [])+(['minimax'] if minimax_ready() else [])
+    caps['videoModels']=(['wan'] if wan else [])+(['minimax-h3'] if h3 else [])
+    caps['imageMethods']=(['transform'] if sdxl else [])+(['reference'] if sdxl and reference_ready() else [])
+    modes=[]
+    if sdxl or qwen:modes+=['text-image','image-edit']
+    if caps['musicModels']:modes.append('music')
+    if wan or h3:modes.append('text-video')
+    if wan_i2v or h3:modes.append('video')
+    caps['modes']=modes
+    return caps
+
+def reference_ready():return gpu_backend.marker(ROOT/'models/generation/ip-adapter').is_file() and (ROOT/'models/generation/ip-adapter/adapter.safetensors').is_file() and (ROOT/'models/generation/ip-adapter/image_encoder/model.safetensors').is_file()
 
 def catalog():return json.loads((ROOT/'models/generation/catalog.json').read_text(encoding='utf-8'))
 def enqueue(job):
     jobs[job['id']]=job;save(job);threading.Thread(target=run,args=(job,),daemon=True).start();return job['id']
 
 def create(flow):
+    if gpu_backend.backend()=='none':raise ValueError(gpu_backend.status()['reason'])
     kinds={node.get('class_type') for node in flow.values()}
     if 'ProjectMiniMaxH3' in kinds:
         job=parse_h3(flow)
@@ -83,6 +118,7 @@ def create(flow):
         if not isinstance(prompt,str) or not 1<=len(prompt)<=12000 or not isinstance(lyrics,str) or len(lyrics)>12000:raise ValueError('音樂風格或歌詞長度不正確')
         if type(duration) is not int or not 10<=duration<=180:raise ValueError('HeartMuLa 長度需為 10–180 秒')
         if type(seed) is not int or not 0<=seed<=2147483647:raise ValueError('HeartMuLa 種子不正確')
+        if not heartmula_ready():raise ValueError('HeartMuLa 尚未在這台電腦的顯示卡上完成驗證')
         ident=str(uuid.uuid4())
         return enqueue({'id':ident,'status':'queued','mode':'music','prompt':prompt,'lyrics':lyrics,'duration':duration,'seed':seed,'output':ident+'.wav','created':time.time(),'model':'heartmula-3b','ending':ending})
     if '459:452' in flow and '459:474' not in flow:
@@ -96,6 +132,7 @@ def create(flow):
         if Path(image).name!=image or not (DATA/'input'/image).is_file():raise ValueError('找不到參考圖片')
     else:raise ValueError('此生成類型尚未完成獨立化。目前支援 SDXL Turbo 文生圖及單圖轉換，不會轉送 ComfyUI。')
     if not isinstance(prompt,str) or not 1<=len(prompt)<=12000:raise ValueError('提示詞長度不正確')
+    if not sdxl_ready():raise ValueError('SDXL Turbo 尚未在這台電腦的顯示卡上完成驗證')
     a,b=map(int,ratio.split(' ')[0].split(':'));w=math.sqrt(max(.2,min(mp,1))*1000000*a/b);h=w*b/a;scale=min(1,768/max(w,h));w=max(256,int(w*scale)//64*64);h=max(256,int(h*scale)//64*64)
     ident=str(uuid.uuid4());job={'id':ident,'status':'queued','mode':mode,'prompt':prompt,'seed':int(flow['459:458']['inputs']['seed']),'width':w,'height':h,'image':image,'output':ident+'.png','created':time.time(),'model':'sdxl-turbo-ipadapter' if image_method=='reference' else 'sdxl-turbo','image_method':image_method}
     return enqueue(job)
@@ -106,7 +143,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
     def do_GET(self):
         url=urlparse(self.path);route=url.path
-        if route=='/capabilities':return self.reply(200,{'engine':'project-native','label':'專案獨立生成引擎','models':catalog()['models'],'modes':['text-image','image-edit','music']+(['text-video'] if video_ready() else [])+(['video'] if image_video_ready() else []),'videoModels':['wan']+(['minimax-h3'] if h3_ready() else []),'h3OutputResolutions':['source','720p','1080p'],'h3QualityOptions':['standard']+(['480p'] if h3_high_quality_ready() else []),'h3Profiles':([p for p in ('original','turbo') if h3_ready(p)]),'h3Limits':{'maxSeconds':3,'imageMaxSeconds':1,'fps':24,'maxPixels':147456},'videoLimits':{'maxSeconds':3,'imageMaxSeconds':1,'maxPixels':399360,'fps':16},'imageModels':['sdxl-turbo']+(['qwen-image-2.1'] if qwen_ready() else []),'imageMethods':['transform']+(['reference'] if reference_ready() else []),'musicLimits':{'heartmula':{'minSeconds':10,'maxSeconds':180},'minimax':{'minSeconds':5,'maxSeconds':300}},'musicModels':['heartmula']+(['minimax'] if minimax_ready() else []),'limitations':'圖片模型可選SDXL Turbo或已驗證的Qwen Image 2.1；編輯目前限單張參考圖。影片與音樂長度依各模型限制，首次載入可能較慢。','offline':True})
+        if route=='/capabilities':return self.reply(200,adjust_capabilities({'engine':'project-native','label':'專案獨立生成引擎','models':catalog()['models'],'modes':['text-image','image-edit','music']+(['text-video'] if video_ready() else [])+(['video'] if image_video_ready() else []),'videoModels':['wan']+(['minimax-h3'] if h3_ready() else []),'h3OutputResolutions':['source','720p','1080p'],'h3QualityOptions':['standard']+(['480p'] if h3_high_quality_ready() else []),'h3Profiles':([p for p in ('original','turbo') if h3_ready(p)]),'h3Limits':{'maxSeconds':3,'imageMaxSeconds':1,'fps':24,'maxPixels':147456},'videoLimits':{'maxSeconds':3,'imageMaxSeconds':1,'maxPixels':399360,'fps':16},'imageModels':['sdxl-turbo']+(['qwen-image-2.1'] if qwen_ready() else []),'imageMethods':['transform']+(['reference'] if reference_ready() else []),'musicLimits':{'heartmula':{'minSeconds':10,'maxSeconds':180},'minimax':{'minSeconds':5,'maxSeconds':300}},'musicModels':['heartmula']+(['minimax'] if minimax_ready() else []),'limitations':'圖片模型可選SDXL Turbo或已驗證的Qwen Image 2.1；編輯目前限單張參考圖。影片與音樂長度依各模型限制，首次載入可能較慢。','offline':True}))
         if route=='/progress':
             state={}
             for ident,j in jobs.items():

@@ -1,0 +1,28 @@
+/* Mode switch above the input */
+.mode-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px;margin-bottom:4px}
+.mode-bar button[role="radio"]{min-height:32px;padding:5px 14px;border:1px solid var(--line,#ddd);border-radius:999px;background:transparent;color:var(--muted,#666);font-size:13px;cursor:pointer}
+.mode-bar button[role="radio"]:hover{color:var(--text,#222);background:color-mix(in srgb,var(--text,#222) 6%,transparent)}
+.mode-bar button[role="radio"][aria-checked="true"]{background:var(--accent,#5b4a8b);color:var(--button-text,#fff);border-color:transparent;font-weight:600}
+.mode-bar button[hidden]{display:none}
+.mode-status{margin-left:auto;font-size:12px;color:var(--muted,#666)}
+.mode-status .mode-suggest{min-height:28px;padding:3px 12px;border:1px dashed var(--accent,#5b4a8b);border-radius:999px;background:transparent;color:var(--accent,#5b4a8b);font-size:12px;cursor:pointer}
+@media(max-width:600px){.mode-bar button[role="radio"]{padding:4px 11px;font-size:12px}.mode-status{flex-basis:100%;margin-left:4px}}
+
+/* Empty conversation: examples */
+.chat.has-quick-start{justify-content:flex-start} /* margin:auto on the panel centres it without clipping when it overflows */
+.chat > .message.system.greeting-hidden{display:none}
+.quick-start{width:min(780px,100%);margin:auto;display:grid;gap:14px;text-align:center}
+.quick-start h2{margin:0;font-size:22px;font-weight:600;color:var(--text,#222)}
+.quick-start p{margin:0;font-size:13px;line-height:1.7;color:var(--muted,#666)}
+.quick-start-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:6px;text-align:left}
+.quick-start-grid button{display:grid;align-content:start;justify-items:start;text-align:left;gap:4px;min-height:104px;padding:14px;border:1px solid var(--line,#ddd);border-radius:14px;background:var(--surface,#fff);color:var(--text,#222);cursor:pointer;transition:border-color .15s,transform .15s}
+.quick-start-grid button:hover,.quick-start-grid button:focus-visible{border-color:var(--accent,#5b4a8b);transform:translateY(-1px)}
+.quick-start-grid .qs-icon{font-size:22px;line-height:1}
+.quick-start-grid .qs-title{font-size:14px;font-weight:650}
+.quick-start-grid .qs-desc{font-size:12px;line-height:1.5;color:var(--muted,#666)}
+@media(max-width:600px){.quick-start{gap:10px}.quick-start-grid{grid-template-columns:1fr 1fr;gap:8px}.quick-start-grid button{min-height:0;padding:10px 12px}.quick-start-grid .qs-icon{font-size:18px}.quick-start-grid .qs-desc{font-size:11px}.quick-start h2{font-size:18px}.quick-start p{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.quick-start-grid button{transition:none}}
+
+/* GPU notice and unavailable examples */
+.quick-start-notice{margin:0 auto;max-width:620px;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent,#5b4a8b) 10%,transparent);color:var(--text,#222)!important}
+.quick-start-grid button[hidden]{display:none}

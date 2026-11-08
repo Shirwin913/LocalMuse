@@ -1,0 +1,13 @@
+/* Follow the colours chosen in the chat's 設定 → 外觀 (written by ui-polish.js). */
+html[data-synced-theme]{color-scheme:var(--scheme,dark);color:var(--text);background:var(--page-bg)}
+html[data-synced-theme] body{background:var(--page-bg);color:var(--text)}
+html[data-synced-theme] header{border-color:var(--line);color:var(--muted)}
+html[data-synced-theme] a,html[data-synced-theme] small{color:var(--accent)}
+html[data-synced-theme] p,html[data-synced-theme] #status{color:var(--muted)}
+html[data-synced-theme] button{background:var(--raised);border-color:var(--line);color:var(--text)}
+html[data-synced-theme] button:hover:not(:disabled){background:color-mix(in srgb,var(--raised) 82%,var(--accent))}
+html[data-synced-theme] .panel,html[data-synced-theme] #metrics article{background:var(--surface);border-color:var(--line)}
+html[data-synced-theme] #metrics article span,html[data-synced-theme] .model-row small{color:var(--muted)}
+html[data-synced-theme] .model-row{border-color:var(--line)}
+html[data-synced-theme] progress{accent-color:var(--accent)}
+html[data-synced-theme] :focus-visible{outline-color:var(--accent)}

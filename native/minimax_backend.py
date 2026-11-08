@@ -1,6 +1,7 @@
 """Local MiniMax model installation checks, without importing inference packages."""
 from audio_ending import validate_ending
 import json, math
+import gpu_backend
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = ROOT / 'models/generation/minimax-music3'
@@ -17,7 +18,7 @@ def installed():
 
 
 def ready():
-    return installed() and (MODEL / 'validated.json').is_file() and (ROOT / 'runtime/minimax-env/Scripts/python.exe').is_file()
+    return installed() and gpu_backend.marker(MODEL).is_file() and gpu_backend.minimax_python().is_file()
 
 
 def parse_workflow(flow):

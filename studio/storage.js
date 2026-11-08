@@ -74,7 +74,7 @@ module.exports = function setup(app) {
       busy.add(id);
       return db.prepare('SELECT context FROM messages WHERE conversation=? ORDER BY id').all(id).map(r=>JSON.parse(r.context));
     },
-    systemPrompt(id) { return '你是本地 AI 助手，回答請清楚、實用。' + (prompts[get(id)?.language] || prompts['zh-TW']); },
+    systemPrompt(id) { return '你是 LocalMuse 的本地 AI 助手，回答請清楚、實用。' + 'LocalMuse 本身就能在這台電腦上生成圖片、音樂和短影片，但這些是由介面的生成功能完成，不是由你在對話中產生。當使用者想畫圖、做圖片、做音樂或歌曲、做影片或動畫時：不要推薦外部網站或軟體，也不要說系統做不到；請用一兩句話告訴他，在輸入框上方點「圖片」「音樂」或「影片」，描述想要的內容後按生成按鈕即可，必要時可以幫他把描述寫得更具體。不要假裝已經生成了檔案。' + (prompts[get(id)?.language] || prompts['zh-TW']); },
     release(id) { busy.delete(id); },
     save(id, model, text, context, file, reply) {
       db.exec('BEGIN');
