@@ -244,6 +244,26 @@ HeartMuLa留白歌詞會使用 `[Instrumental]`；MiniMax則保留空白歌詞�
 
 MiniMax的5–300秒是參數允許範圍，不代表在10GB顯卡上完整測過所有長度；目前短片段技術測試成功，長片速度與聽感仍需實測。
 
+#### 提示詞範例：深夜雨聲 Lo-fi
+
+如果只寫「放鬆的鋼琴音樂」，模型需要自行決定節奏、樂器、人聲與曲子的走向。可以先寫清楚三件事：
+
+- **整體方向**：曲風、速度、情緒，以及想要的錄音質感。
+- **人聲**：要不要人聲、唱法、音量，以及哪些段落留白。
+- **編曲**：主要樂器如何分工，以及前奏、主段、間奏和尾奏如何變化。
+
+以下是專案作者試聽後覺得效果不錯的範例。可整段貼到「音樂生成」的主輸入框。如果要唱指定的歌詞，請把歌詞另外填到歌詞欄。
+
+```text
+Global Metadata: Lo-fi hip-hop, chillhop. 78 BPM, D flat major, major scale with jazzy extensions. Laid-back and dreamy throughout, a gentle warm drift with a subtle late-night glow that deepens in the middle and dissolves softly at the end. Studying, raining-outside, headphones-on late-night listening. Bedroom production: muddy warm texture, heavy vinyl crackle, tape hiss and wow-flutter pitch wobble, low-passed dusty mix, soft-clipped drums, everything slightly detuned and cozy.
+
+Vocal Details: Soft androgynous vocal, hushed half-sung half-spoken delivery, sitting low in the mix like another instrument, lazy behind-the-beat phrasing, gentle breathy timbre. Sparse murmured double-tracked harmonies, occasional wordless "mmm" and "ooh" hums drenched in tape delay and warm spring reverb. Long stretches with no vocals at all.
+
+Arrangement: Dusty boom-bap drums with a soft thumping kick, cracked snare with lazy swing, brushed hi-hats, low round sub bass. Warm Rhodes piano chords with slow chorus wobble as the harmonic bed, mellow jazzy guitar licks answering the vocal lines, constant vinyl crackle as texture. Intro: rain and vinyl noise, solo Rhodes chords fading in, drums slipping in halfway. Verses: minimal — drums, bass, Rhodes, soft guitar fills between lines. Instrumental sections: guitar and Rhodes trade relaxed jazzy phrases over the beat, occasional muted trumpet ghost notes far in the background. Bridge: drums drop away to rain, crackle, and floating detuned Rhodes, then the beat eases back in. Outro: elements fade one by one until only vinyl crackle and a last unresolved Rhodes chord remain.
+```
+
+想改成自己的曲子，可以保留這三段結構，再換掉節奏、主奏樂器或尾奏。測試很短的片段時，先指定一兩個主要段落，讓提示詞符合要生成的長度。BPM、調性和尾奏都是用來引導模型的描述，實際結果可能隨模型、長度與種子而變化。
+
 ### 音樂收尾
 
 在音樂生成設定的「收尾處理」選擇保留原始結尾（預設），或末段8／12秒淡出。淡出會漸弱音量至靜音，保留原始WAV；短片最多處理末四分之一，不延長總片長。它能避免突然切斷，但不是模型重新編曲，也不能保證旋律與和聲已自然收束。更明確的結尾描述可嘗試引導模型，本機測試仍可能到長度上限才停止。詳見[音樂說明](native/MUSIC.md)。
